@@ -1,4 +1,6 @@
-﻿namespace PascalCompiler
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+namespace PascalCompiler
 {
    internal class Program
    {
