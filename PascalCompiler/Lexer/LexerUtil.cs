@@ -27,7 +27,7 @@ namespace PascalCompiler.Lexer
       //*direct* explicit usage for "digits" and "letters" according to 6.1.1 is unclear, commented if/until needed.
       //rebuttal for above: https://stackoverflow.com/questions/3192619/design-guidelines-for-parser-and-lexer
       //character-strings (see 6.1.7)
-      StringCharacter, // [0-9A-Za-z_-\(\)]
+      StringCharacter, // [_-\(\)] (not including digits or letters)
       ApostropheImage, // "
       //digit (see 6.1.1)
       _0, _1, _2, _3, _4, _5, _6, _7, _8, _9,
@@ -82,13 +82,13 @@ namespace PascalCompiler.Lexer
       Equals, // =
       LessThan, // <
       GreaterThan, // >
-      LeftSquareBracket, // [
-      RightSquareBracket, // ]
+      /*DYNAMIC*/ LeftSquareBracket, // [ *OR* (. (see 6.1.9)
+      /*DYNAMIC*/ RightSquareBracket, // ] *OR* .) (see 6.1.9)
       Dot, // .
       Comma, // ,
       Colon, // :
       Semicolon, // ;
-      /*DYNAMIC*/ UpArrow, // ↑ *OR* asdf (see x.x.x)
+      /*DYNAMIC*/ UpArrow, // ↑/^ *OR* @ (see 6.1.9)
       OpenParen, // (
       CloseParen, // )
       KetPair, // <>
@@ -109,6 +109,9 @@ namespace PascalCompiler.Lexer
       ///*DYNAMIC*/ DigitSequence, // a digit followed by zero or more digits
       //labels (see 6.1.6)
       ///*DYNAMIC*/ Label, // a digit sequence
+      //token separators (commentary) (see 6.1.8)
+      /*DYNAMIC*/ OpenComment, // { *OR* (* (see 6.1.8)
+      /*DYNAMIC*/ CloseComment, // } *OR* *) (see 6.1.8)
       //not explicit in the spec, but useful for this implementation
       WHITESPACE = 65536u, //not including cr or lf
       CR,
