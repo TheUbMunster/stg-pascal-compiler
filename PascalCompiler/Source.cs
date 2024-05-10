@@ -97,7 +97,7 @@ namespace PascalCompiler
       {
          //regardless of whether it's crlf or just lf, if we see the prev index is a \n, then the current index must be a start of a line.
          int temp = fileLocation;
-         while (temp >= 0 || FileContents[temp] != '\n')
+         while (temp >= 0 && FileContents[temp] != '\n')
          {
             temp--;
          }
@@ -117,9 +117,9 @@ namespace PascalCompiler
             {
                int nextLineStart = lineBeginnings[lineIndex + 1];
                if (FileContents[nextLineStart - 2] == '\r') //check whether crlf or lf
-                  line = FileContents.Substring(lineStart, nextLineStart - 2);
+                  line = FileContents.Substring(lineStart, nextLineStart - lineStart - 2);
                else
-                  line = FileContents.Substring(lineStart, nextLineStart - 1);
+                  line = FileContents.Substring(lineStart, nextLineStart - lineStart - 1);
             }
             else
                line = FileContents.Substring(lineStart); //this is the last line

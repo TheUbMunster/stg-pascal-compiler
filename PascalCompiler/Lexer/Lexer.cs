@@ -123,65 +123,13 @@ namespace PascalCompiler.Lexer
       #region Overrides
       public override string ToString()
       {
-         return $"{Type}{(string.IsNullOrEmpty(Content) ? "" : $" '{Content}'")}";
+         return $"{Type}{(string.IsNullOrEmpty(Content) ? "" : $" '{Regex.Replace(Content, @"\r\n?|\n", "[line break]")}'")}";
       }
       #endregion
    }
 
    public static class Lexer
-   {
-      //private static List<Token.TokenType> lexingPrecedence = new List<Token.TokenType>()
-      //  {
-      //      //lex comments because they might have quotes
-      //      Token.TokenType.LINE_COMMENT,
-      //      Token.TokenType.BLOCK_COMMENT,
-
-      //      Token.TokenType.STRING,
-      //      Token.TokenType.WHITESPACE,
-      //      Token.TokenType.BACKSLASH,
-      //      Token.TokenType.NEWLINE,
-      //      Token.TokenType.OP, //needs to be before equals
-      //      //grouping is probably more common than any specific keyword
-      //      Token.TokenType.COLON,
-      //      Token.TokenType.LCURLY,
-      //      Token.TokenType.RCURLY,
-      //      Token.TokenType.LPAREN,
-      //      Token.TokenType.RPAREN,
-      //      Token.TokenType.COMMA,
-      //      Token.TokenType.LSQUARE,
-      //      Token.TokenType.RSQUARE,
-      //      Token.TokenType.EQUALS,
-
-      //      Token.TokenType.ARRAY,
-      //      Token.TokenType.ASSERT,
-      //      Token.TokenType.BOOL,
-      //      Token.TokenType.ELSE,
-      //      Token.TokenType.FALSE,
-      //      Token.TokenType.FN,
-      //      Token.TokenType.IF,
-      //      Token.TokenType.FLOAT,
-      //      Token.TokenType.IMAGE,
-      //      Token.TokenType.INT,
-      //      Token.TokenType.LET,
-      //      Token.TokenType.PRINT,
-      //      Token.TokenType.READ,
-      //      Token.TokenType.RETURN,
-      //      Token.TokenType.SHOW,
-      //      Token.TokenType.SUM,
-      //      Token.TokenType.THEN,
-      //      Token.TokenType.TIME,
-      //      Token.TokenType.TO,
-      //      Token.TokenType.TRUE,
-      //      Token.TokenType.TYPE,
-      //      Token.TokenType.WRITE,
-
-      //      Token.TokenType.FLOATVAL,
-      //      Token.TokenType.INTVAL,
-      //      Token.TokenType.VARIABLE,
-      //      //least common
-      //      Token.TokenType.END_OF_FILE,
-      //  };
-      
+   {      
       public static void Lex(Source source)
       {
          TokenType max = TTMax();
@@ -212,117 +160,13 @@ namespace PascalCompiler.Lexer
          source.TakeLexerTokens(tokens);
       }
 
-      #region nonsense
-      //private static void ReplaceCommentsWithNewlines(List<Token> tokens)
-      //{
-      //   for (int i = tokens.Count - 1; i >= 0; i--)
-      //   {
-      //      if (tokens[i].Type == Token.TokenType.LINE_COMMENT)
-      //         tokens[i] = Token.CreateToken(Token.TokenType.NEWLINE, tokens[i].FilePos);
-      //   }
-      //}
-
-      //private static void FilterOutDuplicateNewlines(List<Token> tokens)
-      //{
-      //   bool prevnl = false;
-      //   for (int i = tokens.Count - 1; i >= 0; i--)
-      //   {
-      //      if (prevnl && tokens[i].Type == Token.TokenType.NEWLINE)
-      //      {
-      //         tokens.RemoveAt(i);
-      //      }
-      //      prevnl = tokens[i].Type == Token.TokenType.NEWLINE;
-      //   }
-      //}
-
-      //private static void FilterOutNonspec(List<Token> tokens)
-      //{
-      //   //add feature "replace with" for sake of CRLF -> LF
-      //   List<Token.TokenType[]> filterPatterns = new List<Token.TokenType[]>()
-      //      {
-      //          new Token.TokenType[] { Token.TokenType.BLOCK_COMMENT },
-      //          new Token.TokenType[] { Token.TokenType.BACKSLASH, Token.TokenType.WHITESPACE, Token.TokenType.NEWLINE },
-      //          new Token.TokenType[] { Token.TokenType.BACKSLASH, Token.TokenType.NEWLINE },
-      //          new Token.TokenType[] { Token.TokenType.WHITESPACE }
-      //      };
-      //   //if any of the described subsequences exist in the list, remove them (walk backwards to avoid messing up indeces).
-      //   for (int fpi = 0; fpi < filterPatterns.Count; fpi++)
-      //   {
-      //      for (int i = (tokens.Count - (filterPatterns[fpi].Length - 1)) - 1; i >= 0; i--)
-      //      {
-      //         bool validMatch = true;
-      //         for (int j = 0; j < filterPatterns[fpi].Length; j++)
-      //         {
-      //            validMatch &= (tokens[i + j].Type == filterPatterns[fpi][j]);
-      //         }
-      //         if (validMatch)
-      //         {
-      //            tokens.RemoveRange(i, filterPatterns[fpi].Length);
-      //         }
-      //      }
-      //   }
-      //}
-
-      //private static (int index, Token token) LexToken(string content, int index, ref int nlc, ref int lnli)
-      //{
-         //Token? token = null!;
-         //for (int i = 0; i < lexingPrecedence.Count; i++)
-         //{
-         //   try
-         //   {
-         //      token = Token.CreateToken(lexingPrecedence[i], new Token.FilePosition(nlc, index - lnli));
-         //      try
-         //      {
-         //         Regex reg = token.Reg;
-         //      }
-         //      catch (Exception ex)
-         //      {
-         //         throw new LexerException("Attempt to access Regex for token failed.", ex);
-         //      }
-         //      Match m = token.Reg.Match(content, index);
-         //      if (m.Success)
-         //      {
-         //         token.Content = m.Value;
-         //         if (token.Type == Token.TokenType.OP)
-         //         {
-         //            if ((token.Content == "*" && index > 0 && content[index - 1] == '/')
-         //                || (token.Content == "*" && index < content.Length - 1 && content[index + 1] == '/')
-         //                || (token.Content == "/" && index < content.Length - 1 && content[index + 1] == '/'))
-         //            {
-         //               throw new LexerException("Could not lex OP token due to conflation with block comment.");
-         //            }
-         //         }
-         //         if (token.Type == Token.TokenType.NEWLINE)
-         //         {
-         //            nlc++;
-         //            lnli = index;
-         //         }
-         //         return (index + (token.Content?.Length ?? 1), token);
-         //      }
-         //      else
-         //      {
-         //         continue;
-         //      }
-         //   }
-         //   catch (Exception ex)
-         //   {
-         //      if (ex is not LexerException)
-         //         throw new LexerException($"Lexer error in [{lexingPrecedence[i]}] at position: {(token == null ? index : token.FilePos)}:", ex);
-         //      else
-         //         throw new LexerException($"Lexer error in [{lexingPrecedence[i]}] at position: {(token == null ? index : token.FilePos)}:", ex);
-         //   }
-         //}
-      //   throw new LexerException($"Could not lex token at position: ");// {(token == null ? index : token.FilePos)}");
-      //}
-      #endregion
-
       /// <summary>
       /// Increments an enum to it's next defined value.
       /// </summary>
       /// <returns>Null if the incremented value was the largest value in the enum, the incremented enum otherwise</returns>
       private static TokenType? TTIncrement(TokenType val)
       {
-         TokenType[] Arr = Enum.GetValues<TokenType>(); //this should fetch them in sorted order.
+         TokenType[] Arr = Enum.GetValues<TokenType>().OrderBy(x => (int)x).ToArray(); //this should fetch them in sorted order.
          int j = Array.IndexOf(Arr, val) + 1;
          return (j >= Arr.Length) ? null : Arr[j];
       }
@@ -333,9 +177,9 @@ namespace PascalCompiler.Lexer
       /// <returns>Null if the Decrimented value was the smallest value in the enum, the decrimented enum otherwise</returns>
       private static TokenType? TTDecriment(TokenType val)
       {
-         TokenType[] Arr = Enum.GetValues<TokenType>(); //this should fetch them in sorted order.
+         TokenType[] Arr = Enum.GetValues<TokenType>().OrderBy(x => (int)x).ToArray(); //this should fetch them in sorted order.
          int j = Array.IndexOf(Arr, val) - 1;
-         return (j <= 0) ? null : Arr[j];
+         return (j < 0) ? null : Arr[j];
       }
 
       /// <summary>

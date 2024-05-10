@@ -197,20 +197,20 @@ namespace PascalCompiler
             Console.BackgroundColor = ConsoleColor.Black;
             //todo: add colorful source reporting if that information is avaliable.
             var loc = source.GetLineColFromFileLocation(message.fileLocation.Value);
-            const int windowSize = 2;
+            const int windowSize = 3;
             for (int i = -windowSize; i < windowSize + 1; i++)
             {
                int desiredLine = loc.line + i;
-               if (desiredLine > 0 && desiredLine < source.LineCount)
+               if (desiredLine >= 0 && desiredLine < source.LineCount)
                {
-                  Console.WriteLine($"{desiredLine.ToString().PadRight(lgb10)} {source.GetSourceLine(desiredLine)}");
+                  Console.WriteLine($"{(desiredLine + 1).ToString().PadRight(lgb10)} {source.GetSourceLine(desiredLine)}");
                   if (i == 0)
                   {
                      //print a pointer to the exact character where the error is, but print it in a way where there's room.
                      Console.ForegroundColor = ConsoleColor.Black;
                      Console.BackgroundColor = ConsoleColor.White;
                      string preamble = "error here ", pointer = "----^";
-                     int horizLen = loc.col + 1;
+                     int horizLen = loc.col + 1 + lgb10 + 1;
                      if (horizLen >= preamble.Length + pointer.Length)
                         Console.WriteLine($"{preamble}{pointer}".PadLeft(horizLen));
                      else if (horizLen >= pointer.Length)
