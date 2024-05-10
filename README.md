@@ -22,6 +22,9 @@ Besides adhering to ISO/IEC 7185:1990(E), here are the details about various par
 
 Referenced at the beginning of section 6.1.7 is lexem "string-character". This lexem is a set of characters determined to be legal within a string.
 Although it's contents are up to the compiler developer (me), it does have a restriction, namely, the apostrophe ''' is not a legal string-character.
-For now (subject to change), the following C# style regex matches all characters I've determined to be a member of "string-character".
+For now (subject to change), every character in the "legalChars" array at the top of LegalCharacterSet.cs except the apostrophe is a legal string-character.
 
-[0-9A-Za-z_-\(\)]
+##up arrow
+
+More a clairification, but the special-symbol "up arrow" doesn't exist in the UTF8 character space (our preferred character encoding).
+As per note 1 in section 6.1.9, the "up arrow"'s reference token is the carat ^, and as per the spec, the alternative token is @.

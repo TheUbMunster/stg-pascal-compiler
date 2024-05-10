@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using PascalCompiler.Lexer;
 
 namespace PascalCompiler
 {
@@ -11,7 +12,7 @@ namespace PascalCompiler
    {
       #region Consts
       private static Flag[] flagDefs = new Flag[]
-      {
+      { //todo: add "scan only" flag
          new Flag("l", "(DEBUG) This flag is if you want to lex the source and emit the lexed output only. " +
             "If an output file name is specified, the output will be written to the output file. " +
             "If not, it will be printed to stdout.", new[] { "p", "t", "s", "O0", "O1", "O2", "O3" }),
@@ -49,6 +50,7 @@ namespace PascalCompiler
       /// <param name="mutualExclusionFlags">What other flag names are not a legal combination with this flag</param>
       private record struct Flag(string flagName, string helpMessage, string[] mutualExclusionFlags);
       #endregion
+      //todo: make this function the entry point for unit testing methods, add the ability to past streams instead of filepaths via args.
       public static int Process(string[] args, Action<Source> lexerDelegate)
       {
          IReadOnlyList<string> flags = args.Where(x => x.StartsWith("-")).Select(x => x.Substring(1)).ToList();
@@ -85,7 +87,9 @@ namespace PascalCompiler
             Console.Error.WriteLine("No non-flag arguments, nothing to do.");
             return -1;
          }
-         //create sources.
+         //==============
+         // SCAN SOURCES
+         //==============
          List<Source> sources;
          {
             ConcurrentBag<Source> cSources = new();
@@ -98,14 +102,66 @@ namespace PascalCompiler
          }
          foreach (Source s in sources)
          {
-
+            foreach (Source.Message m in s.Messages)
+            {
+               PrintMessage(s, m);
+            }
+            s.ClearMessages();
          }
+         if (sources.Any(s => s.ErrorHasOccurred))
+         {
+            Console.Error.WriteLine("Compilation failed at the SourceScan stage.");
+            return -1;
+         }
+         //if (flags.Contains("asdf"))
+         //{
+         //   foreach (Source s in sources)
+         //   {
+         //      Console.WriteLine("idk");
+         //   }
+         //   Console.WriteLine("Compilation succeeded: scan check complete");
+         //   return 0;
+         //}
+         //=====
+         // LEX
+         //=====
+         Parallel.For(0, sources.Count, (i) =>
+         {
+            Lexer.Lexer.Lex(sources[i]);
+         });
+         foreach (Source s in sources)
+         {
+            foreach (Source.Message m in s.Messages)
+            {
+               PrintMessage(s, m);
+            }
+            s.ClearMessages();
+         }
+         if (sources.Any(s => s.ErrorHasOccurred))
+         {
+            Console.Error.WriteLine("Compilation failed at the Lexer stage.");
+            return -1;
+         }
+         if (flags.Contains("l"))
+         {
+            foreach (Source s in sources)
+            {
+               Console.WriteLine(string.Join("\n", s.LexerTokens));
+            }
+            Console.WriteLine("Compilation succeeded: lexical analysis complete");
+            return 0;
+         }
+
+
+
+         throw new NotImplementedException(); //at the very end
       }
       public static void PrintMessage(Source source, Source.Message message)
       {
          int lgb10 = (int)Math.Ceiling(Math.Log10(source.LineCount));
          ConsoleColor ofg = Console.ForegroundColor, obg = Console.BackgroundColor;
          ConsoleColor primaryMessageColor;
+         Console.BackgroundColor = ConsoleColor.Black;
          switch (message.severity)
          {
             case Source.Severity.Pedantic:
@@ -137,6 +193,8 @@ namespace PascalCompiler
          if (message.fileLocation.HasValue)
          {
             Console.WriteLine($"The above error was reported to correlate to the following part of [{source.Filename}]:");
+            Console.ForegroundColor = ConsoleColor.White;
+            Console.BackgroundColor = ConsoleColor.Black;
             //todo: add colorful source reporting if that information is avaliable.
             var loc = source.GetLineColFromFileLocation(message.fileLocation.Value);
             const int windowSize = 2;
@@ -144,9 +202,25 @@ namespace PascalCompiler
             {
                int desiredLine = loc.line + i;
                if (desiredLine > 0 && desiredLine < source.LineCount)
-                  ;
-               if (i == 0)
-                  ;
+               {
+                  Console.WriteLine($"{desiredLine.ToString().PadRight(lgb10)} {source.GetSourceLine(desiredLine)}");
+                  if (i == 0)
+                  {
+                     //print a pointer to the exact character where the error is, but print it in a way where there's room.
+                     Console.ForegroundColor = ConsoleColor.Black;
+                     Console.BackgroundColor = ConsoleColor.White;
+                     string preamble = "error here ", pointer = "----^";
+                     int horizLen = loc.col + 1;
+                     if (horizLen >= preamble.Length + pointer.Length)
+                        Console.WriteLine($"{preamble}{pointer}".PadLeft(horizLen));
+                     else if (horizLen >= pointer.Length)
+                        Console.WriteLine($"{pointer}".PadLeft(horizLen));
+                     else
+                        Console.WriteLine(pointer.Substring(pointer.Length - horizLen));
+                     Console.ForegroundColor = ConsoleColor.White;
+                     Console.BackgroundColor = ConsoleColor.Black;
+                  }
+               }
             }
          }
          else

@@ -12,12 +12,12 @@ namespace PascalCompiler
       //this is the list of every character that can appear within a pascal program.
       //if a text file contains a character not in this list, then the file is considered
       //to be an illegal program, and cannot be lexed.
-      private static readonly char[] legalChars = new char[]
+      public static readonly char[] legalChars = new char[]
       {
          '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
          'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
          'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-         '!', '"', '\'', '(', ')', '[', ']', '{', '}', '.', '*', '=', '+', '-', '/', '_', '<', '>', ',', ' ', ':', ';', '@', '^'
+         '!', '"', '\'', '(', ')', '[', ']', '{', '}', '.', '*', '=', '+', '-', '/', '_', '<', '>', ',', ' ', ':', ';', '@', '^', '\r', '\n'
       };
       private static readonly (char lowerInclusive, char upperInclusive)[] collapsedLegalChars;
       #endregion

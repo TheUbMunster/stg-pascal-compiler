@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "PascalCompiler": {
+      "commandName": "Project",
+      "commandLineArgs": "-l Test-Pascal-Scripts\\Factorial.pas"
+    }
+  }
+}

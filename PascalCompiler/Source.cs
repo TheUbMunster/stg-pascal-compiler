@@ -8,13 +8,13 @@ using PascalCompiler.Lexer;
 
 namespace PascalCompiler
 {
-   internal class Source
+   public class Source
    {
       #region Typedefs
       public enum CompilerPhase
       {
          SourceScan,
-         Lex,
+         Lexer,
          Parse,
          Typecheck,
          EmitAsm,
@@ -37,20 +37,21 @@ namespace PascalCompiler
       #region Fields
       public IReadOnlyList<Message> Messages { get => messages; }
       private List<Message> messages = new List<Message>();
-      private bool errorHasOccurred = false;
+      public bool ErrorHasOccurred { get; private set; } = false;
       public string FileContents { get; init; }
       public int LineCount { get => lineBeginnings.Count; }
       private List<int> lineBeginnings;
       public string Filename { get; init; }
       public IReadOnlyList<Token> LexerTokens { get => lexerTokens; }
-      private List<Token> lexerTokens = new List<Token>();
+      private List<Token> lexerTokens = null!;
+      public bool HasBeenLexed { get; private set; }
 
       #endregion
 
       #region Ctor
       //public Source(Uri uri) : this(File.ReadAllText(uri.AbsolutePath)) { }
       public Source(string filePath)
-      {
+      { //the caller *should* pass a fully qualified path
          Filename = Path.GetFileName(filePath);
          string fileContent = File.ReadAllText(filePath);
          Parallel.For(0, fileContent.Length, (i) =>
@@ -61,22 +62,34 @@ namespace PascalCompiler
                AppendMessage(new(CompilerPhase.SourceScan, Severity.Error, $"Could not lex due to illegal character at position {i}: [UTF8]:\"{Regex.Escape(c.ToString())}\"", i, true));
             }
          });
+         //TODO: apparently cr, lf, and crlf are all a thing. fix this, and anything else that does this sort of thing.
          lineBeginnings = Regex.Matches(fileContent, "(\\r\\n)|(\\n)").Select(x => x.Index + x.Value.Length).Prepend(0).ToList();
          FileContents = fileContent;
       }
       #endregion
 
       #region Lexer
-      public void AppendLexerToken(Token token)
+      public void TakeLexerTokens(List<Token> tokens)
       {
-         lexerTokens.Add(token);
+         if (HasBeenLexed)
+         {
+            AppendMessage(new(CompilerPhase.Runtime, Severity.Error, $"The compiler attempted to lex the same file ({Filename}) more than once", null, true));
+            throw new Exception("An error occurred in the compiler, see the message log.");
+         }
+         else
+         {
+            lexerTokens = tokens;
+            HasBeenLexed = true;
+         }
       }
       #endregion
 
       #region Error Handling
+      public void ClearMessages() => messages.Clear();
+
       public void AppendMessage(Message mesg)
       {
-         errorHasOccurred |= mesg.isError;
+         ErrorHasOccurred |= mesg.isError;
          messages.Add(mesg);
       }
 
@@ -100,10 +113,13 @@ namespace PascalCompiler
          {
             int lineStart = lineBeginnings[lineIndex];
             string line;
-            if (lineIndex < lineBeginnings.Count - 1)
+            if (lineIndex < lineBeginnings.Count - 1) //if this isn't the last line in the file
             {
                int nextLineStart = lineBeginnings[lineIndex + 1];
-               line = FileContents.Substring(lineStart, nextLineStart);
+               if (FileContents[nextLineStart - 2] == '\r') //check whether crlf or lf
+                  line = FileContents.Substring(lineStart, nextLineStart - 2);
+               else
+                  line = FileContents.Substring(lineStart, nextLineStart - 1);
             }
             else
                line = FileContents.Substring(lineStart); //this is the last line
@@ -115,8 +131,6 @@ namespace PascalCompiler
             throw new Exception("An error occurred in the compiler, see the message log.");
          }
       }
-
-      public bool ErrorHasOccurred() => errorHasOccurred;
       #endregion
    }
 }

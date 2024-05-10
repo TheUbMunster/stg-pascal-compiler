@@ -10,12 +10,14 @@ namespace PascalCompiler
    {
       static Program()
       {
-         Regex.CacheSize = 256;
+         Regex.CacheSize = 1000; //we use a lot of regex.
       }
 
       static void Main(string[] args)
       {
-         StringBuilder errorAggregate = new StringBuilder();
+         Console.ForegroundColor = ConsoleColor.White;
+         Console.BackgroundColor = ConsoleColor.Black;
+         Console.Clear();
 #if DEBUG
          Console.WriteLine("THIS IS A DEBUG BUILD");
 #endif

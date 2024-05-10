@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.IO.MemoryMappedFiles;
 
 namespace PascalCompilerUnitTests
 {
@@ -8,6 +9,7 @@ namespace PascalCompilerUnitTests
       [TestMethod]
       public void LexHelloWorld()
       {
+         //MemoryMappedFile.CreateNew()
          string hello = @"Program Hello:
 Begin
    WriteIn('Hello, World!');
