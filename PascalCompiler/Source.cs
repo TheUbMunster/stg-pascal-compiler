@@ -68,7 +68,17 @@ namespace PascalCompiler
             }
          });
          //TODO: apparently cr, lf, and crlf are all a thing. fix this, and anything else that does this sort of thing.
-         lineBeginnings = Regex.Matches(fileContent, "(\r\n?|\n)").Select(x => x.Index + x.Value.Length).Prepend(0).ToList();
+         MatchCollection linebreaks = Regex.Matches(fileContent, "(\r\n?|\n)");
+         IEnumerable<string> distinctLineBreaks = linebreaks.Select(x => x.Value).Distinct();
+         if (distinctLineBreaks.Count() != 1)
+         {
+            AppendMessage(new Message(CompilerPhase.SourceScan, Severity.Suggestion, $"You have mixed line endings: {string.Join(", ", distinctLineBreaks.Select(x => x.Replace("\r", "CR").Replace("\n", "LF")))}", null, false));
+         }
+         if (distinctLineBreaks.Any(x => x == "\r"))
+         {
+            AppendMessage(new Message(CompilerPhase.SourceScan, Severity.Warning, "You use old-mac style line endings (CR), using this source code file with other computers could break compatibility.", null, false));
+         }
+         lineBeginnings = linebreaks.Select(x => x.Index + x.Value.Length).Prepend(0).ToList();
          FileContents = fileContent;
       }
       #endregion
@@ -167,7 +177,7 @@ namespace PascalCompiler
             string line;
             if (lineIndex < lineBeginnings.Count - 1) //if this isn't the last line in the file
             {
-               int nextLineStart = lineBeginnings[lineIndex + 1];
+               int nextLineStart = lineBeginnings[lineIndex + 1];  //todo fix me \r \n \r\n
                if (FileContents[nextLineStart - 2] == '\r') //check whether crlf or lf
                   line = FileContents.Substring(lineStart, nextLineStart - lineStart - 2);
                else

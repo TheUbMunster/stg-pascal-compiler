@@ -1,0 +1,2 @@
+# I believe this prevents git from messing with the line endings of this file
+PascalCompiler/Test-Pascal-Scripts/MixedLineEndings.pas -text

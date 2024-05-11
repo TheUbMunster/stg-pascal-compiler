@@ -7,11 +7,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PascalCompiler", "PascalCom
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{6094F54D-B91D-42AB-99B6-C678ADBB2916}"
 	ProjectSection(SolutionItems) = preProject
+		.gitattributes = .gitattributes
 		.gitignore = .gitignore
 		README.md = README.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PascalCompilerUnitTests", "PascalCompilerUnitTests\PascalCompilerUnitTests.csproj", "{2B839525-9EB7-4AB3-A928-A4C26409C50A}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "PascalCompilerUnitTests", "PascalCompilerUnitTests\PascalCompilerUnitTests.csproj", "{2B839525-9EB7-4AB3-A928-A4C26409C50A}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

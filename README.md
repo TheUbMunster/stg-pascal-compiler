@@ -18,13 +18,24 @@ proof that the code structure supports conditional optimization goals.
 One of the fun parts about writing compilers is how oftentimes the spec leaves to the developer certain implementation details.
 Besides adhering to ISO/IEC 7185:1990(E), here are the details about various parts of my compiler that are relevant to those who use it.
 
-##string-character
+## string-character
 
 Referenced at the beginning of section 6.1.7 is lexem "string-character". This lexem is a set of characters determined to be legal within a string.
 Although it's contents are up to the compiler developer (me), it does have a restriction, namely, the apostrophe ''' is not a legal string-character.
 For now (subject to change), every character in the "legalChars" array at the top of LegalCharacterSet.cs except the apostrophe is a legal string-character.
 
-##up arrow
+## up arrow
 
 More a clairification, but the special-symbol "up arrow" doesn't exist in the UTF8 character space (our preferred character encoding).
 As per note 1 in section 6.1.9, the "up arrow"'s reference token is the carat ^, and as per the spec, the alternative token is @.
+
+## line endings
+
+The pascal compiler is compatible with windows-style line endings (CRLF), unix-style line endings (LF), and old-mac line endings (CR),
+however, mixing line endings will cause the compiler to emit a "mixed line endings" suggestion, and using old-mac line endings (CR), will
+cause the compiler to emit a "you shouldn't use old-mac style line endings for file compatibility with other computers, especially unix" warning.
+
+## source file encoding
+
+For now, I only guarantee functionality with UTF8 encoded source files. Any other encodings may work, but I haven't tested for them.
+This may change in the future.

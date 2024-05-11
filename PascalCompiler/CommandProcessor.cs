@@ -13,30 +13,30 @@ namespace PascalCompiler
       #region Consts
       private static Flag[] flagDefs = new Flag[]
       { //todo: add "scan only" flag
+         new Flag("r", "(DEBUG) This flag is if you want to scan the source and emit the scan info output only. " +
+            "If an output file name is specified, the output will be written to the output file. " +
+            "If not, it will be printed to stdout.", new[] { "l", "p", "t", "s", "O0", "O1", "O2", "O3" }),
          new Flag("l", "(DEBUG) This flag is if you want to lex the source and emit the lexed output only. " +
             "If an output file name is specified, the output will be written to the output file. " +
-            "If not, it will be printed to stdout.", new[] { "p", "t", "s", "O0", "O1", "O2", "O3" }),
+            "If not, it will be printed to stdout.", new[] { "r", "p", "t", "s", "O0", "O1", "O2", "O3" }),
          new Flag("p", "(DEBUG) This flag is if you want to lex and parse the source and emit the AST output only. " +
             "If an output file name is specified, the output will be written to the output file. " +
-            "If not, it will be printed to stdout.", new[] { "l", "t", "s", "O0", "O1", "O2", "O3" }),
+            "If not, it will be printed to stdout.", new[] { "r", "l", "t", "s", "O0", "O1", "O2", "O3" }),
          new Flag("t", "(DEBUG) This flag is if you want to lex, parse, and typecheck the source and emit the typechecking info output only. " +
             "If an output file name is specified, the output will be written to the output file. " +
-            "If not, it will be printed to stdout.", new[] { "l", "p", "s", "O0", "O1", "O2", "O3" }),
+            "If not, it will be printed to stdout.", new[] { "r", "l", "p", "s", "O0", "O1", "O2", "O3" }),
          new Flag("s", "(DEBUG) This flag is if you want to lex, parse, typecheck, and emit assembly from the source only. " +
             "If an output file name is specified, the output will be written to the output file. " +
-            "If not, it will be printed to stdout.", new[] { "l", "p", "t", "O0", "O1", "O2", "O3" }),
+            "If not, it will be printed to stdout.", new[] { "r", "l", "p", "t", "O0", "O1", "O2", "O3" }),
          new Flag("O0", "This flag indicates to the compiler to perform no optimizations", 
-            new[] { "l", "p", "t", "s", "O1", "O2", "O3" }),
+            new[] { "r", "l", "p", "t", "s", "O1", "O2", "O3" }),
          new Flag("O1", "This flag indicates to the compiler to perform minimal optimizations",
-            new[] { "l", "p", "t", "s", "O0", "O2", "O3" }),
+            new[] { "r", "l", "p", "t", "s", "O0", "O2", "O3" }),
          new Flag("O2", "This flag indicates to the compiler to perform moderate optimizations",
-            new[] { "l", "p", "t", "s", "O0", "O1", "O3" }),
+            new[] { "r", "l", "p", "t", "s", "O0", "O1", "O3" }),
          new Flag("O3", "This flag indicates to the compiler to perform all optimizations",
-            new[] { "l", "p", "t", "s", "O0", "O1", "O2" }),
-         new Flag("n", "The output name of the executable",
-            new[] { "l", "p", "t", "s" }),
-         //new Flag("z", "This flag indicates to the compiler that the source code will be passed via",
-         //   new string[] { }),
+            new[] { "r", "l", "p", "t", "s", "O0", "O1", "O2" }),
+         new Flag("n", "The output name of the log file or executable", new string[] { }), //todo: implement logging
       };
       #endregion
 
@@ -51,14 +51,14 @@ namespace PascalCompiler
       private record struct Flag(string flagName, string helpMessage, string[] mutualExclusionFlags);
       #endregion
       //todo: make this function the entry point for unit testing methods, add the ability to past streams instead of filepaths via args.
-      public static int Process(string[] args, Action<Source> lexerDelegate)
+      public static int Process(string[] args)
       {
          IReadOnlyList<string> flags = args.Where(x => x.StartsWith("-")).Select(x => x.Substring(1)).ToList();
          IReadOnlyList<string> nonflags = args.Where(x => !x.StartsWith("-")).ToList();
          //check for help
          if (flags.Contains("-help") || flags.Contains("help") || flags.Contains("h"))
          {
-            Console.WriteLine("PascalCompiler - a ISO/IEC 7185:1990(E) pascal compiler written by TheUbMunster" + Environment.NewLine +
+            Console.WriteLine("PascalCompiler - an ISO/IEC 7185:1990(E) pascal compiler written by TheUbMunster" + Environment.NewLine +
                "Usage: [flags...] [filepath...]" + Environment.NewLine + // | source
                "Flags:" + Environment.NewLine +
                "\t--help | -help | -h - Prints this help message." + Environment.NewLine + Environment.NewLine +
@@ -113,15 +113,15 @@ namespace PascalCompiler
             Console.Error.WriteLine("Compilation failed at the SourceScan stage.");
             return -1;
          }
-         //if (flags.Contains("asdf"))
-         //{
-         //   foreach (Source s in sources)
-         //   {
-         //      Console.WriteLine("idk");
-         //   }
-         //   Console.WriteLine("Compilation succeeded: scan check complete");
-         //   return 0;
-         //}
+         if (flags.Contains("r"))
+         {
+            //foreach (Source s in sources)
+            //{
+            //   Console.WriteLine("idk");
+            //}
+            Console.WriteLine("Compilation succeeded: scan check complete");
+            return 0;
+         }
          //=====
          // LEX
          //=====
