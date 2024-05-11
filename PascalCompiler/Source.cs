@@ -43,8 +43,13 @@ namespace PascalCompiler
       private List<int> lineBeginnings;
       public string Filename { get; init; }
       public IReadOnlyList<Token> LexerTokens { get => lexerTokens; }
-      private List<Token> lexerTokens = null!;
-      public bool HasBeenLexed { get; private set; }
+      private List<Token> lexerTokens = new List<Token>();
+      private List<int> lexerTokensLineBeginnings = new List<int>();
+      public bool HasBeenFullyLexed { get; private set; } = false;
+      /// <summary>
+      /// How many lines of the source have been lexed. This is not a zero-based index.
+      /// </summary>
+      public int LexedUpToLineNumber { get; private set; } = 0;
 
       #endregion
 
@@ -63,29 +68,53 @@ namespace PascalCompiler
             }
          });
          //TODO: apparently cr, lf, and crlf are all a thing. fix this, and anything else that does this sort of thing.
-         lineBeginnings = Regex.Matches(fileContent, "(\\r\\n)|(\\n)").Select(x => x.Index + x.Value.Length).Prepend(0).ToList();
+         lineBeginnings = Regex.Matches(fileContent, "(\r\n?|\n)").Select(x => x.Index + x.Value.Length).Prepend(0).ToList();
          FileContents = fileContent;
       }
       #endregion
 
       #region Lexer
-      public void TakeLexerTokens(List<Token> tokens)
+      public void AddLexerToken(Token token)
       {
-         if (HasBeenLexed)
+         if (HasBeenFullyLexed)
          {
             AppendMessage(new(CompilerPhase.Runtime, Severity.Error, $"The compiler attempted to lex the same file ({Filename}) more than once", null, true));
             throw new Exception("An error occurred in the compiler, see the message log.");
          }
          else
          {
-            lexerTokens = tokens;
-            HasBeenLexed = true;
+            //when you add the first token past the linebreak, add it to the line beginnings
+            //when you add a linebreak, mark that line as complete.
+            if (lexerTokensLineBeginnings.Count == 0)
+            {
+               lexerTokensLineBeginnings.Add(0);
+            }
+            else if (lexerTokens[^1].Type == TokenType.LINEBREAK) //don't do this on the very first add.
+            {
+               lexerTokensLineBeginnings.Add(lexerTokens.Count); // - 1 + 1 because we're about to insert the beginning of the line.
+            }
+            if (token.Type == TokenType.LINEBREAK)
+            {
+               LexedUpToLineNumber++; //only want to say that a line has been completely lexed if we hit the linebreak for that line.
+            }
+            lexerTokens.Add(token);
          }
+      }
+
+      public void LexingComplete()
+      {
+         if (HasBeenFullyLexed)
+         {
+            AppendMessage(new(CompilerPhase.Runtime, Severity.Error, $"The compiler attempted to lex the same file ({Filename}) more than once", null, true));
+            throw new Exception("An error occurred in the compiler, see the message log.");
+         }
+         else
+            HasBeenFullyLexed = true;
       }
       #endregion
 
       #region Error Handling
-      public void ClearMessages() => messages.Clear();
+      public void ClearMessages() => messages.Clear(); // do not clear "ErrorHasOccurred"
 
       public void AppendMessage(Message mesg)
       {
@@ -97,7 +126,7 @@ namespace PascalCompiler
       {
          //regardless of whether it's crlf or just lf, if we see the prev index is a \n, then the current index must be a start of a line.
          int temp = fileLocation;
-         while (temp >= 0 && FileContents[temp] != '\n')
+         while (temp >= 0 && FileContents[temp] != '\n') //todo fix me \r \n \r\n
          {
             temp--;
          }
@@ -105,6 +134,29 @@ namespace PascalCompiler
          int line = lineBeginnings.IndexOf(temp);
          int col = fileLocation - temp;
          return (line, col);
+      }
+
+      /// <summary>
+      /// Gets the sequence of tokens representing the lexed form of a line of source code.
+      /// If the line of source code is fully lexed (<see cref="LexedUpToLineNumber"/>), then
+      /// the returned list is terminated by a <see cref="TokenType.LINEBREAK"/> token.
+      /// If the line of source is partially lexed, the returned list will not contain a
+      /// <see cref="TokenType.LINEBREAK"/> token, but will contain all the tokens the 
+      /// lexer was able to lex (it may not contain any tokens at all for that line).
+      /// Any attempts to request a line beyond this will return an empty list.
+      /// </summary>
+      public List<Token> GetLexTokenSourceLine(int lineIndex)
+      {
+         if (lineIndex > LexedUpToLineNumber)
+            return new List<Token>();
+         int start = lexerTokensLineBeginnings[lineIndex];
+         if (lexerTokensLineBeginnings.Count - 1 > lineIndex)
+         {
+            int end = lexerTokensLineBeginnings[lineIndex + 1];
+            return lexerTokens[start..end];
+         }
+         else
+            return lexerTokens[start..];
       }
 
       public string GetSourceLine(int lineIndex)

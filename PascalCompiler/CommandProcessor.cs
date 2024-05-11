@@ -158,6 +158,75 @@ namespace PascalCompiler
       }
       public static void PrintMessage(Source source, Source.Message message)
       {
+         IReadOnlyDictionary<TokenType, ConsoleColor> lexemColors = new Dictionary<TokenType, ConsoleColor>()
+         {
+            { TokenType.String, ConsoleColor.DarkRed },
+            { TokenType.SEQ_Digits, ConsoleColor.Cyan },
+            { TokenType.SEQ_Letters, ConsoleColor.Cyan },
+            //keywords
+            { TokenType.And, ConsoleColor.Blue },
+            { TokenType.Array, ConsoleColor.Blue },
+            { TokenType.Begin, ConsoleColor.Blue },
+            { TokenType.Case, ConsoleColor.Blue },
+            { TokenType.Const, ConsoleColor.Blue },
+            { TokenType.Div, ConsoleColor.Blue },
+            { TokenType.Do, ConsoleColor.Blue },
+            { TokenType.Downto, ConsoleColor.Blue },
+            { TokenType.Else, ConsoleColor.Blue },
+            { TokenType.End, ConsoleColor.Blue },
+            { TokenType.File, ConsoleColor.Blue },
+            { TokenType.For, ConsoleColor.Blue },
+            { TokenType.Function, ConsoleColor.Blue },
+            { TokenType.Goto, ConsoleColor.Blue },
+            { TokenType.If, ConsoleColor.Blue },
+            { TokenType.In, ConsoleColor.Blue },
+            { TokenType.Label, ConsoleColor.Blue },
+            { TokenType.Mod, ConsoleColor.Blue },
+            { TokenType.Nil, ConsoleColor.Blue },
+            { TokenType.Not, ConsoleColor.Blue },
+            { TokenType.Of, ConsoleColor.Blue },
+            { TokenType.Or, ConsoleColor.Blue },
+            { TokenType.Packed, ConsoleColor.Blue },
+            { TokenType.Procedure, ConsoleColor.Blue },
+            { TokenType.Program, ConsoleColor.Blue },
+            { TokenType.Record, ConsoleColor.Blue },
+            { TokenType.Repeat, ConsoleColor.Blue },
+            { TokenType.Set, ConsoleColor.Blue },
+            { TokenType.Then, ConsoleColor.Blue },
+            { TokenType.To, ConsoleColor.Blue },
+            { TokenType.Type, ConsoleColor.Blue },
+            { TokenType.Until, ConsoleColor.Blue },
+            { TokenType.Var, ConsoleColor.Blue },
+            { TokenType.While, ConsoleColor.Blue },
+            { TokenType.With, ConsoleColor.Blue },
+            //operators
+            { TokenType.Plus, ConsoleColor.Yellow },
+            { TokenType.Minus, ConsoleColor.Yellow },
+            { TokenType.Asterisk, ConsoleColor.Yellow },
+            { TokenType.ForwardSlash, ConsoleColor.Yellow },
+            { TokenType.Equals, ConsoleColor.Yellow },
+            { TokenType.LessThan, ConsoleColor.Yellow },
+            { TokenType.GreaterThan, ConsoleColor.Yellow },
+            { TokenType.LeftSquareBracket, ConsoleColor.Yellow },
+            { TokenType.RightSquareBracket, ConsoleColor.Yellow },
+            { TokenType.Dot, ConsoleColor.Yellow },
+            { TokenType.Comma, ConsoleColor.Yellow },
+            { TokenType.Colon, ConsoleColor.Yellow },
+            { TokenType.Semicolon, ConsoleColor.Yellow },
+            { TokenType.UpArrow, ConsoleColor.Yellow },
+            { TokenType.OpenParen, ConsoleColor.Yellow },
+            { TokenType.CloseParen, ConsoleColor.Yellow },
+            { TokenType.KetPair, ConsoleColor.Yellow },
+            { TokenType.LessThanOrEqual, ConsoleColor.Yellow },
+            { TokenType.GreaterThanOrEqual, ConsoleColor.Yellow },
+            { TokenType.Walrus, ConsoleColor.Yellow },
+            { TokenType.DoubleDot, ConsoleColor.Yellow },
+            //misc
+            { TokenType.Comment, ConsoleColor.Green },
+            { TokenType.WHITESPACE, ConsoleColor.White },
+            { TokenType.LINEBREAK, ConsoleColor.White },
+         };
+
          int lgb10 = (int)Math.Ceiling(Math.Log10(source.LineCount));
          ConsoleColor ofg = Console.ForegroundColor, obg = Console.BackgroundColor;
          ConsoleColor primaryMessageColor;
@@ -188,8 +257,7 @@ namespace PascalCompiler
             Console.WriteLine("The following is an error severe enough to cause the compiler to halt:");
 
          Console.ForegroundColor = primaryMessageColor;
-         Console.WriteLine($"{source.Filename} - [{message.phase}] [{message.severity}]:");
-         Console.WriteLine(message.message);
+         Console.WriteLine($"{source.Filename} - [{message.phase}] [{message.severity}]: {message.message}");
          if (message.fileLocation.HasValue)
          {
             Console.WriteLine($"The above error was reported to correlate to the following part of [{source.Filename}]:");
@@ -203,7 +271,38 @@ namespace PascalCompiler
                int desiredLine = loc.line + i;
                if (desiredLine >= 0 && desiredLine < source.LineCount)
                {
-                  Console.WriteLine($"{(desiredLine + 1).ToString().PadRight(lgb10)} {source.GetSourceLine(desiredLine)}");
+                  if (desiredLine <= source.LexedUpToLineNumber)
+                  {
+                     List<Token> toks = source.GetLexTokenSourceLine(desiredLine);
+                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                     Console.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} ");
+                     int printedLength = 0;
+                     for (int tk = 0; tk < toks.Count; tk++)
+                     {
+                        if (toks[tk].Type == TokenType.LINEBREAK)
+                        {
+                           if (tk != toks.Count - 1)
+                           { //there's a linebreak and it isn't the last token in the line? WTH?
+
+                           }
+                           else continue;
+                        }
+                        Console.ForegroundColor = lexemColors[toks[tk].Type];
+                        Console.Write(toks[tk].Content);
+                        printedLength += toks[tk].TokenLength; //should we include the lengths of linebreaks?
+                     }
+                     Console.ForegroundColor = ConsoleColor.White;
+                     string remainder = source.GetSourceLine(desiredLine).Substring(printedLength);
+                     Console.WriteLine(remainder);
+                  }
+                  else
+                  {
+                     Console.BackgroundColor = ConsoleColor.Black;
+                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
+                     Console.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} ");
+                     Console.ForegroundColor = ConsoleColor.White;
+                     Console.WriteLine($"{source.GetSourceLine(desiredLine)}");
+                  }
                   if (i == 0)
                   {
                      //print a pointer to the exact character where the error is, but print it in a way where there's room.

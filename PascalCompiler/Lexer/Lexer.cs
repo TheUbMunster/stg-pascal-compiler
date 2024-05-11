@@ -16,52 +16,52 @@ namespace PascalCompiler.Lexer
    public sealed class Token
    {
       #region Consts
+      //private const string dontMatchFollowingChars = "(?=([^A-Za-z0-9\\r\\n]{1})|(\\z))";
       private static readonly IReadOnlyDictionary<TokenType, Regex> regexes = new Dictionary<TokenType, Regex>()
       {
          //word-symbol (see 6.1.2)
-         { TokenType.And, new Regex("\\Gand", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Array, new Regex("\\Garray", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Begin, new Regex("\\Gbegin", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Case, new Regex("\\Gcase", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Const, new Regex("\\Gconst", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Div, new Regex("\\Gdiv", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Do, new Regex("\\Gdo", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Downto, new Regex("\\Gdownto", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Else, new Regex("\\Gelse", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.End, new Regex("\\Gend", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.File, new Regex("\\Gfile", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.For, new Regex("\\Gfor", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Function, new Regex("\\Gfunction", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Goto, new Regex("\\Ggoto", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.If, new Regex("\\Gif", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.In, new Regex("\\Gin", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Label, new Regex("\\Glabel", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Mod, new Regex("\\Gmod", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Nil, new Regex("\\Gnil", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Not, new Regex("\\Gnot", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Of, new Regex("\\Gof", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Or, new Regex("\\Gor", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Packed, new Regex("\\Gpacked", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Procedure, new Regex("\\Gprocedure", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Program, new Regex("\\Gprogram", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Record, new Regex("\\Grecord", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Repeat, new Regex("\\Grepeat", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Set, new Regex("\\Gset", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Then, new Regex("\\Gthen", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.To, new Regex("\\Gto", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Type, new Regex("\\Gtype", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Until, new Regex("\\Guntil", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.Var, new Regex("\\Gvar", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.While, new Regex("\\Gwhile", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         { TokenType.With, new Regex("\\Gwith", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.And, new Regex("\\Gand(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Array, new Regex("\\Garray(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Begin, new Regex("\\Gbegin(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Case, new Regex("\\Gcase(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Const, new Regex("\\Gconst(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Div, new Regex("\\Gdiv(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Do, new Regex("\\Gdo(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Downto, new Regex("\\Gdownto(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Else, new Regex("\\Gelse(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.End, new Regex("\\Gend(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.File, new Regex("\\Gfile(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.For, new Regex("\\Gfor(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Function, new Regex("\\Gfunction(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Goto, new Regex("\\Ggoto(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.If, new Regex("\\Gif(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.In, new Regex("\\Gin(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Label, new Regex("\\Glabel(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Mod, new Regex("\\Gmod(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Nil, new Regex("\\Gnil(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Not, new Regex("\\Gnot(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Of, new Regex("\\Gof(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Or, new Regex("\\Gor(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Packed, new Regex("\\Gpacked(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Procedure, new Regex("\\Gprocedure(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Program, new Regex("\\Gprogram(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Record, new Regex("\\Grecord(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Repeat, new Regex("\\Grepeat(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Set, new Regex("\\Gset(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Then, new Regex("\\Gthen(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.To, new Regex("\\Gto(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Type, new Regex("\\Gtype(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Until, new Regex("\\Guntil(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.Var, new Regex("\\Gvar(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.While, new Regex("\\Gwhile(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         { TokenType.With, new Regex("\\Gwith(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
          //character-strings (see 6.1.7)
          //{ TokenType.String, (new Regex($"\\G'({string.Join('|', LegalCharacterSet.legalChars.Where(c => c != '\'').Select(c => Regex.Escape(c.ToString())))})'", RegexOptions.Compiled | RegexOptions.IgnoreCase), null) },
          { TokenType.String, new Regex("\\G'.*?'", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         //digit (see 6.1.1)
-         { TokenType.Digit, new Regex("\\G[0-9]", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
-         //letter (see 6.1.1)
-         { TokenType.UppercaseLetter, new Regex("\\G[A-Z]", RegexOptions.Compiled) },
-         { TokenType.LowercaseLetter, new Regex("\\G[a-z]", RegexOptions.Compiled) },
+         //digit (concepts in 6.1.1 are handled by the parser, not the lexer).
+         { TokenType.SEQ_Digits, new Regex("\\G[0-9]+", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
+         //letter (concepts in 6.1.1 are handled by the parser, not the lexer).
+         { TokenType.SEQ_Letters, new Regex("\\G[A-Za-z]+", RegexOptions.Compiled) },
          //special-symbol (see 6.1.2)
          { TokenType.Plus, new Regex($"\\G{Regex.Escape("+")}", RegexOptions.Compiled | RegexOptions.IgnoreCase)},
          { TokenType.Minus, new Regex($"\\G{Regex.Escape("-")}", RegexOptions.Compiled | RegexOptions.IgnoreCase)},
@@ -87,9 +87,8 @@ namespace PascalCompiler.Lexer
          //commentary (see 6.1.8)
          { TokenType.Comment, new Regex("\\G({|\\(\\*).*?(}|\\*\\))", RegexOptions.Compiled | RegexOptions.IgnoreCase) }, //we don't have to worry about filtering the ., because the scan step already did that
          //not explicit via spec, but useful for this implementation.
-         { TokenType.WHITESPACE, new Regex("\\G\\s+", RegexOptions.Compiled) },
-         { TokenType.CR, new Regex("\\G\\r", RegexOptions.Compiled) },
-         { TokenType.LF, new Regex("\\G\\n", RegexOptions.Compiled) },
+         { TokenType.WHITESPACE, new Regex("\\G[ \\t]+", RegexOptions.Compiled) },
+         { TokenType.LINEBREAK, new Regex("\\G(\r\n?|\n)", RegexOptions.Compiled) },
       };
       #endregion
 
@@ -123,7 +122,7 @@ namespace PascalCompiler.Lexer
       #region Overrides
       public override string ToString()
       {
-         return $"{Type}{(string.IsNullOrEmpty(Content) ? "" : $" '{Regex.Replace(Content, @"\r\n?|\n", "[line break]")}'")}";
+         return $"{Type}{(string.IsNullOrEmpty(Content) ? "" : $" '{Regex.Replace(Content, @"(\r\n?|\n)", "[line break]")}'")}";
       }
       #endregion
    }
@@ -134,7 +133,6 @@ namespace PascalCompiler.Lexer
       {
          TokenType max = TTMax();
          int index = 0;//, newlineCount = 0, lastNewLineIndex = 0;
-         List<Token> tokens = new List<Token>();
          TokenType attempt = max;
          while (index < source.FileContents.Length)
          {
@@ -143,7 +141,7 @@ namespace PascalCompiler.Lexer
             {
                attempt = max;
                index += t.TokenLength;
-               tokens.Add(t);
+               source.AddLexerToken(t);
             }
             else
             {
@@ -157,7 +155,7 @@ namespace PascalCompiler.Lexer
                }
             }
          }
-         source.TakeLexerTokens(tokens);
+         source.LexingComplete();
       }
 
       /// <summary>

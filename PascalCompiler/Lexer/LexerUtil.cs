@@ -28,12 +28,19 @@ namespace PascalCompiler.Lexer
       String = -50, // every letter in LegalCharacterSet.legalChars except ', includes the wrapping ''
       //ApostropheImage, // " (unnecessary)
       //digit (see 6.1.1)
-      /*DYNAMIC*/ Digit = -102, //any single digit (see 6.1.1)
+      ///*DYNAMIC*/ Digit = -102, //any single digit (see 6.1.1)
       //_0, _1, _2, _3, _4, _5, _6, _7, _8, _9,
       //letter (see 6.1.1)
-      /*DYNAMIC*/ UppercaseLetter = -101, //any capitol letter (see 6.1.1)
+
+      //the concepts backing letters & numbers in section 6.1 belong to the parser, not the lexer.
+      //this does NOT correlate to the digit-sequence concept outlined in 6.1.5
+      /*DYNAMIC*/ SEQ_Digits = -101, //any amount of contiguous digits [0-9]
+      //this does NOT correlate to any part of the spec in 6.1
+      /*DYNAMIC*/ SEQ_Letters = -100, //any amount of contiguous letters of any case [A-Za-z]
+
+      ///*DYNAMIC*/ UppercaseLetter = -101, //any capitol letter (see 6.1.1)
       //A, B, C, D, E, F, G, H, I, J, K, L, M, N, O, P, Q, R, S, T, U, V, W, X, Y, Z,
-      /*DYNAMIC*/ LowercaseLetter = -100, //any lowercase letter (see 6.1.1)
+      ///*DYNAMIC*/ LowercaseLetter = -100, //any lowercase letter (see 6.1.1)
       //a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z,
       //identifier (see 6.1.3)
       ///*DYNAMIC*/ Identifier, //one letter followed by zero or more letters and/or digits.
@@ -125,8 +132,6 @@ namespace PascalCompiler.Lexer
       //not explicit in the spec, but useful for this implementation
       WHITESPACE = 65536, //not including cr or lf
       //needs to be higher than whsp
-      CR = 65537,
-      //needs to be higher than whsp
-      LF = 65538
+      LINEBREAK = 65537,
    }
 }
