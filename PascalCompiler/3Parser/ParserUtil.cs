@@ -1,0 +1,80 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+
+namespace PascalCompiler.Parser
+{
+   public class ParserException : Exception
+   {
+      public ParserException(string? message) : base(message) { }
+      public ParserException(string? message, Exception? innerException) : base(message, innerException) { }
+   }
+   //todo: redo this with the pascal ones
+   public enum ASTNodeType //this list is comprised only of terminal symbols??? (is the T suffix necessary?)
+   { //actually, I think this list is comprised only of "is a thing" things. I.e., non-ast-categories
+      LabelDeclarationPart, //although technechally not a terminal according to 6.2.1 spec syntax, it can be parsed as one.
+      ConstantDefinitionPart,
+      TypeDefinitionPart,
+      VariableDeclarationPart,
+      ProcedureAndFunctionDeclarationPart, //this might not be a terminal
+      LabelValue,
+      ConstantDefinition,
+      Identifier,
+      //ReadCmd = 0,
+      //WriteCmd,
+      //TypeCmd,
+      //LetCmd,
+      //AssertCmd,
+      //PrintCmd,
+      //ShowCmd,
+      //IntType,
+      //BoolType,
+      //FloatType,
+      //VarType,
+      //IntExpr,
+      //FloatExpr,
+      //TrueExpr,
+      //FalseExpr,
+      //VarExpr,
+      //VarArgument,
+      //ArgLValue,
+      //ArrayType,
+      //TupleType,
+      //TupleLiteralExpr,
+      //ArrayLiteralExpr,
+      ////redundant parenthesized expr
+      //TupleIndexExpr,
+      //ArrayIndexExpr,
+      //CallExpr,
+      //InverseOpExpr,
+      //NegateOpExpr,
+      //MulOpExpr,
+      //DivOpExpr,
+      //ModOpExpr,
+      //AddOpExpr,
+      //SubOpExpr,
+      //LTOpExpr,
+      //GTOpExpr,
+      //LTOEOpExpr,
+      //GTOEOpExpr,
+      //EqEqOpExpr,
+      //NotEqOpExpr,
+      //AndAndOpExpr,
+      //OrOrOpExpr,
+      //IfExpr,
+      //ArrayLoopExpr,
+      //SumLoopExpr,
+      //TimeCmd,
+      //FnCmd,
+      //LetStmt,
+      //AssertStmt,
+      //ReturnStmt,
+      //ArrayArgument,
+      //TupleLValue,
+      //TupleBinding,
+      //VarBinding,
+      //UNDEFINED //TODO fix line numbers
+   }
+}

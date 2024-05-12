@@ -22,6 +22,7 @@ namespace PascalCompiler.Lexer
    /// </summary>
    public enum TokenType : int
    { //any commented out entries represent concepts that were likely migrated to the parser.
+      UNDEFINED = int.MinValue, //adding this may break things, see if there's a way to make this unecessary?
       //*direct* explicit usage for "digits" and "letters" according to 6.1.1 is unclear, commented if/until needed.
       //rebuttal for above: https://stackoverflow.com/questions/3192619/design-guidelines-for-parser-and-lexer
       //character-strings (see 6.1.7)

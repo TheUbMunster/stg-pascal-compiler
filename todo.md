@@ -17,3 +17,5 @@
 * Add verbosity level flag to CommandProcessor
 * Make PrintMessage use parse + lex/parse + lex + typecheck information when avaliable (for progressively more accurate code coloring)
 * Write Parser influenced by 6.1 & 6.2, possibly more.
+* Gather the flags and pass them to every function (lex, parse etc) so that these functions can make use of this information
+* Add the ability for AddMessage() to take multiple file locations in case a single error relates to multiple portions of the file.

@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using PascalCompiler.Lexer;
+using PascalCompiler.Parser;
 
 namespace PascalCompiler.Scanner
 {
@@ -46,6 +47,9 @@ namespace PascalCompiler.Scanner
       private List<Token> lexerTokens = new List<Token>();
       private List<int> lexerTokensLineBeginnings = new List<int>();
       public bool HasBeenFullyLexed { get; private set; } = false;
+      public IReadOnlyList<ASTNode> ParserNodes { get => parserNodes; }
+      private List<ASTNode> parserNodes = new List<ASTNode>();
+      public bool HasBeenFullyParsed { get; private set; } = false;
       /// <summary>
       /// How many lines of the source have been lexed. This is not a zero-based index.
       /// </summary>
@@ -120,6 +124,32 @@ namespace PascalCompiler.Scanner
          }
          else
             HasBeenFullyLexed = true;
+      }
+      #endregion
+
+      #region Parser
+      public void AddParserNode(ASTNode node)
+      {
+         if (HasBeenFullyParsed)
+         {
+            AppendMessage(new(CompilerPhase.Runtime, Severity.Error, $"The compiler attempted to parse the same file ({Filename}) more than once", null, true));
+            throw new Exception("An error occurred in the compiler, see the message log.");
+         }
+         else
+         {
+            parserNodes.Add(node);
+         }
+      }
+
+      public void ParsingComplete()
+      {
+         if (HasBeenFullyParsed)
+         {
+            AppendMessage(new(CompilerPhase.Runtime, Severity.Error, $"The compiler attempted to parse the same file ({Filename}) more than once", null, true));
+            throw new Exception("An error occurred in the compiler, see the message log.");
+         }
+         else
+            HasBeenFullyParsed = true;
       }
       #endregion
 

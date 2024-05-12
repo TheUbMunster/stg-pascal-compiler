@@ -14,9 +14,10 @@ using PascalCompiler.Scanner;
 
 namespace PascalCompiler.Lexer
 {
-    public sealed class Token
+   public sealed class Token
    {
       #region Consts
+      public static readonly Token UndefinedToken = new Token() { Content = string.Empty, Type = TokenType.UNDEFINED };
       //private const string dontMatchFollowingChars = "(?=([^A-Za-z0-9\\r\\n]{1})|(\\z))";
       private static readonly IReadOnlyDictionary<TokenType, Regex> regexes = new Dictionary<TokenType, Regex>()
       {
@@ -129,7 +130,7 @@ namespace PascalCompiler.Lexer
    }
 
    public static class Lexer
-   {      
+   {
       public static void Lex(Source source)
       {
          TokenType max = TTMax();
@@ -178,7 +179,7 @@ namespace PascalCompiler.Lexer
       {
          TokenType[] Arr = Enum.GetValues<TokenType>().OrderBy(x => (int)x).ToArray(); //this should fetch them in sorted order.
          int j = Array.IndexOf(Arr, val) - 1;
-         return (j < 0) ? null : Arr[j];
+         return (j < 1) ? null : Arr[j]; // < 1 to skip undefined
       }
 
       /// <summary>
@@ -186,7 +187,7 @@ namespace PascalCompiler.Lexer
       /// </summary>
       private static TokenType TTMin()
       {
-         return Enum.GetValues<TokenType>().OrderBy(x => (int)x).First();
+         return Enum.GetValues<TokenType>().OrderBy(x => (int)x).Skip(1).First();
       }
 
       /// <summary>

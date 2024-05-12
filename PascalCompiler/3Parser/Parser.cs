@@ -1,0 +1,331 @@
+﻿using PascalCompiler.Scanner;
+using PascalCompiler.Lexer;
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Runtime.CompilerServices;
+using System.Text;
+using System.Threading.Tasks;
+using System.Xml.Linq;
+
+namespace PascalCompiler.Parser
+{
+   public class ASTNode
+   {
+      protected ASTNode() { } //when derived classes call the ctor, can we automate assigning the MySource?
+      //maybe implement this concept in the base class ASTNode?
+      //protected List<ASTNode || Token> children;
+      //That way we can automate things like FileLocation as get => children[0].FileLocation
+      //however, automating FileLocation sometimes can't be automated, because e.g., label-declaration-part from 6.2.1
+      //can sometimes be comprised by nothing and therefore has no tokens to check the filelocation of.
+      //perhaps it should be automated via at the whenever you create the ASTNode, you pass in the file location
+      //via the constructor arguments (instead of through new() { } property building syntax).
+      //or maybe keep a FallbackFileLocation that can be assigned separately and used if the children list is empty.
+
+      //and automate ConcatContent get => string.Join("", children.Select(x => x.Content));
+      //same thing with NodeLength
+      protected Source MySource { get; init; } = null!;
+      public virtual ASTNodeType NodeType { get; }
+      public int FileLocation { get; set; } = -1;
+      public int NodeLength { get; set; } = -1;
+      public string ConcatContent { get; set; } = null!; //todo: calculate and cache on first access?
+      //adding the below concept as a feature only makes sense if every non-terminal grammar node in the spec
+      //was structured in such a way where the representing AST node is either fully "effectively empty"
+      //or fully populated, and nothing in between. That probably isn't true.
+      ///// <summary>
+      ///// Is this AST node effectively empty? When true, the spec usually indicated that the definition of this AST node
+      ///// had the entirety of the contents defined as optional. This value is usually false.
+      ///// </summary>
+      //public bool EffectivelyEmpty { get; protected set; } = false;
+
+      public static ASTNode? Parse(IReadOnlyList<Token> tokens, ref int index)
+      {
+         ASTNode? result = null;
+         //list of:
+         //result ??= [ASTNodeCategory].Parse(tokens, ref index);
+         //where [ASTNodeCategory] is a type that one or more terminals derive from.
+         return result;
+      }
+
+      protected static Token Peek(List<Token> tokens, int index)
+      {
+         return index < tokens.Count ? tokens[index] : Token.UndefinedToken;
+      }
+   }
+
+   #region Node Grammatical Classes
+   //hold off on the concept below until experience indicates if it's necessary
+   //to deambiguize terminal and non-terminals, let the classname suffix T mean "terminal", and NT mean "nonterminal"
+
+   //hold off on the concept below until experience indicates if it's necessary
+   //additionally, to deambiguize static concepts with values (e.g., "label" keyword vs "label" value), let the classname prefix S mean static, and V mean value
+   /*
+    * iirc, a "grammatical class" type node according to my patterns is any non-terminal symbol, even if it resolves only to one (non)-terminal child symbol.
+    */
+
+   //maybe this? https://stackoverflow.com/questions/857705/get-all-derived-types-of-a-type
+   //chain the above concept with:
+   //Type potentialSub, potentialSuper;
+   //bool isDirectSubclassOfSuper = potentialSub.IsSubclassOf(potentialSuper) && potentialSub.BaseType == potentialSuper;
+   public class Block : ASTNode
+   {
+      public new static Block? Parse(List<Token> tokens, ref int index)
+      {
+         Block? result = null; //see 6.2.1
+         //comprised of (in this order)
+         //0 or 1: (label-word-symbol "label" 0 or more: (comma-special-symbol "label") semicolon-special-symbol)
+         //0 or 1: (const-word-symbol "constant-definition" semicolon-special-symbol 0 or more: ("constant-definition" semicolon-special-symbol))
+         //... see 6.2.1 for the rest of this list
+         return null; 
+      }
+   }
+
+   //I think we would only do this if block parts were defined like 
+   //block-part = a | b | c | d | e
+   //instead of the reality that these nodes are directly used to construct a block.
+   //public class BlockPart : ASTNode
+   //{
+   //   public new static BlockPart? Parse(List<Token> tokens, ref int index)
+   //   {
+   //      BlockPart? result = null;
+
+   //      return result;
+   //   }
+   //}
+
+   //TODO: order all of these in the order they appear in the spec
+
+   public class LabelDeclarationPart : ASTNode
+   {
+      public Token? FirstLabelWordSymbolToken { get; private set; } = null;
+      public LabelValue? FirstLabelValue { get; private set; } = null;
+      public IReadOnlyList<(Token commaToken, LabelValue labelValue)>? SecondaryLabels { get; private set; } = null;
+      public Token? ClosingSemicolonToken { get; private set; } = null;
+      public override ASTNodeType NodeType { get => ASTNodeType.LabelDeclarationPart; }
+      public override string ToString()
+      {
+         //these should always be ALL null or NONE null
+         if (FirstLabelWordSymbolToken == null || FirstLabelValue == null || SecondaryLabels == null || ClosingSemicolonToken == null)
+            return $"({NodeType})";
+         else return $"({NodeType} {FirstLabelWordSymbolToken} {FirstLabelValue} {string.Join(string.Empty, SecondaryLabels.Select(x => $"{x.commaToken} {x.labelValue}"))} {ClosingSemicolonToken})";
+      }
+      //This particular parse function contains most of the patterns used. Reference it as an example
+      public new static LabelDeclarationPart? Parse(List<Token> tokens, ref int index)
+      {
+         //first of all, here is how the spec defines this item (see 6.2.1):
+         //label-declaration-part = [ 'label' label { ',' label } ';' ] .
+         //note that the contents of label-declaration-part are all encapsulated in [] (0 or 1 of), which means
+         //in this case, if parsing fails, you should still successfully create an effectively empty label-declaration-part.
+         //my probably correct interpretation of the definition says that a label-declaration-part is comprised of:
+         //0 or 1: (label-word-symbol "label" 0 or more: (comma-special-symbol "label") semicolon-special-symbol)
+         //where "label" refers to an actual label value 0-9999 (see section 6.1.6)
+         //sometimes there are *functionally* identical interpretation of the spec in terms of executing the grammar.
+         //I try to stick to the spec for clairity.
+
+         //prelude (most parse functions should have this)
+         int tind = index;
+         LabelDeclarationPart? node = null; //matches return type/containing class type
+         //grab all contiguous simple tokens
+         Token firstLabelWordSymbolTok = Peek(tokens, tind++);
+         //if the next item is an ASTNode, then verify your tokens collected so far
+         if (firstLabelWordSymbolTok.Type == TokenType.Label)
+         {
+            //one by one, parse and verify your required ASTNodes, then descend one nested if deeper
+            LabelValue? firstLabelValue = LabelValue.Parse(tokens, ref tind);
+            if (firstLabelValue != null)
+            {
+               //if at any point you reach a variable number of possible tokens and/or ASTNodes, handle it like this.
+               //in this case, we need to parse a variable amount of (, label)
+               List<(Token comma, LabelValue labelValue)> secondaryLabels = new();
+               Token tempComma = Peek(tokens, tind++);
+               LabelValue? tempLabelValue = LabelValue.Parse(tokens, ref tind);
+               while (tempComma.Type == TokenType.Comma && tempLabelValue != null) //we require both a command and a label
+               {
+                  secondaryLabels.Add((tempComma, tempLabelValue)); //this only adds if the 0th iter was (, label), or if the previous iter was (, label), so it's fine
+                  tempComma = Peek(tokens, tind++);
+                  tempLabelValue = LabelValue.Parse(tokens, ref tind);
+               }
+               //secondaryLabels are already verified.
+               Token closingSemicolon = Peek(tokens, tind++);
+               if (closingSemicolon.Type == TokenType.Semicolon)
+               {
+                  //we've met all the requirements for this AST node as per the 6.2.1 definition of label-declaration-part, so create the node
+                  node = new LabelDeclarationPart() 
+                  { //at this point in execution, the following must be true
+                     FirstLabelWordSymbolToken = firstLabelWordSymbolTok, //Type == TokenType.Label
+                     FirstLabelValue = firstLabelValue, //!= null (therefore valid)
+                     SecondaryLabels = secondaryLabels, //may be empty, but not null (valid)
+                     ClosingSemicolonToken = closingSemicolon //Type == TokenType.Semicolon
+                  }; //i.e., none are null
+               }
+            }
+         }
+         index = node == null ? index : tind;
+         if (node == null) //if we failed to create the node, we should still successfully create an effectively empty label-declaration-part.
+         { //keep in mind that the above line will revert changes to the index; an effectively empty lable-declaration-part retroactively consumed no tokens.
+            //all the contents will be null by default, since this AST node comprises nothing.
+            node = new LabelDeclarationPart() { };
+         }
+         return node;
+      }
+   }
+
+   public class ConstantDefinitionPart : ASTNode
+   {
+      public Token? FirstConstWordSymbolToken { get; private set; } = null;
+      public ConstantDefinition? FirstConstantDefinition { get; private set; } = null;
+      public Token? FirstSemicolonToken { get; private set; } = null;
+      public IReadOnlyList<(ConstantDefinition constantDefinition, Token semicolonToken)>? SecondaryConstantDefinitions { get; private set; } = null;
+      public override ASTNodeType NodeType { get => ASTNodeType.ConstantDefinitionPart; }
+      public override string ToString()
+      {
+         //these should always be ALL null or NONE null
+         if (FirstConstWordSymbolToken == null || FirstConstantDefinition == null || FirstSemicolonToken == null || SecondaryConstantDefinitions == null)
+            return $"({NodeType})";
+         else return $"({NodeType} {FirstConstWordSymbolToken} {FirstConstantDefinition} {FirstSemicolonToken} {string.Join(string.Empty, SecondaryConstantDefinitions.Select(x => $"{x.constantDefinition} {x.semicolonToken}"))})";
+      }
+      public new static ConstantDefinitionPart? Parse(List<Token> tokens, ref int index)
+      { //TODOTODOTODOTODOTODOTODO but need to do ConstantDefinition first
+         int tind = index;
+         ConstantDefinitionPart? node = null;
+
+         Token firstLabelWordSymbolTok = Peek(tokens, tind++);
+         if (firstLabelWordSymbolTok.Type == TokenType.Label)
+         {
+            //one by one, parse and verify your required ASTNodes, then descend one nested if deeper
+            LabelValue? firstLabelValue = LabelValue.Parse(tokens, ref tind);
+            if (firstLabelValue != null)
+            {
+               //if at any point you reach a variable number of possible tokens and/or ASTNodes, handle it like this.
+               //in this case, we need to parse a variable amount of (, label)
+               List<(Token comma, LabelValue labelValue)> secondaryLabels = new();
+               Token tempComma = Peek(tokens, tind++);
+               LabelValue? tempLabelValue = LabelValue.Parse(tokens, ref tind);
+               while (tempComma.Type == TokenType.Comma && tempLabelValue != null) //we require both a command and a label
+               {
+                  secondaryLabels.Add((tempComma, tempLabelValue)); //this only adds if the 0th iter was (, label), or if the previous iter was (, label), so it's fine
+                  tempComma = Peek(tokens, tind++);
+                  tempLabelValue = LabelValue.Parse(tokens, ref tind);
+               }
+               //secondaryLabels are already verified.
+               Token closingSemicolon = Peek(tokens, tind++);
+               if (closingSemicolon.Type == TokenType.Semicolon)
+               {
+                  //we've met all the requirements for this AST node as per the 6.2.1 definition of label-declaration-part, so create the node
+                  node = new ConstantDefinitionPart()
+                  { //at this point in execution, the following must be true
+                     FirstLabelWordSymbol = firstLabelWordSymbolTok, //Type == TokenType.Label
+                     FirstLabelValue = firstLabelValue, //!= null (therefore valid)
+                     SecondaryLabels = secondaryLabels, //may be empty, but not null (valid)
+                     ClosingSemicolon = closingSemicolon //Type == TokenType.Semicolon
+                  }; //i.e., none are null
+               }
+            }
+         }
+         index = node == null ? index : tind;
+         if (node == null) //if we failed to create the node, we should still successfully create an effectively empty label-declaration-part.
+         { //keep in mind that the above line will revert changes to the index; an effectively empty lable-declaration-part retroactively consumed no tokens.
+            //all the contents will be null by default, since this AST node comprises nothing.
+            node = new ConstantDefinitionPart() { };
+         }
+         return node;
+      }
+   }
+
+   //public class Value : ASTNode
+   //{
+   //   public new static Value? Parse(List<Token> tokens, ref int index)
+   //   {
+   //      Value? result = null;
+   //      //iterate over derivers and call .parse on all of them?
+   //      result ??= LabelValueT.Parse(tokens, ref index);
+   //      return result;
+   //   }
+   //}
+
+   public class LabelValue : ASTNode //not sure what this should derive from
+   {
+      public Token DigitSequenceToken { get; private set; } = null!;
+      public override ASTNodeType NodeType { get => ASTNodeType.LabelValue; }
+      public override string ToString()
+      {
+         return $"({NodeType} {DigitSequenceToken})";
+      }
+      public new static LabelValue? Parse(List<Token> tokens, ref int index)
+      {
+         int tind = index;
+         LabelValue? node = null;
+         //regarding label value: see section 6.1.6, simply a digit sequence
+         Token labelValueTok = Peek(tokens, tind++);
+         //iirc, label values are 0-9999, should that be enforced here or the typechecker?
+         //probably here, because label values are *defined* to be 0-9999, and that's enforcable here?
+         //although, that would require parsing as an int, and that sounds like something more befitting
+         //the typechecker stage.
+         if (labelValueTok.Type == TokenType.SEQ_Digits)
+         {
+            node = new LabelValue() { DigitSequenceToken = labelValueTok, FileLocation = labelValueTok.FileLocation };
+         }
+         index = node == null ? index : tind;
+         return node;
+      }
+   }
+
+   public class ConstantDefinition : ASTNode
+   {
+      //identifier node
+      public Token EqualsToken { get; private set; } = null!;
+      //constant node
+      public override ASTNodeType NodeType { get => ASTNodeType.ConstantDefinition; }
+      public override string ToString()
+      {
+         return $"({NodeType} {} {} {})";
+      }
+      public new static ConstantDefinition? Parse(List<Token> tokens, ref int index)
+      {
+         int tind = index;
+         ConstantDefinition? node = null;
+         
+         index = node == null ? index : tind;
+         return node;
+      }
+   }
+
+   public class Identifier : ASTNode
+   {
+      public override ASTNodeType NodeType { get => ASTNodeType.Identifier; }
+      public override string ToString()
+      {
+         return $"({NodeType} {})";
+      }
+      public new static Identifier? Parse(List<Token> tokens, ref int index)
+      {
+         int tind = index;
+         Identifier? node = null;
+         //spec definition: identifier = letter { letter | digit }.
+         //should match our functionality of "" = SEQ_Letters { SEQ_Letters | SEQ_Digits }, but this might be worth correcting.
+         index = node == null ? index : tind;
+         return node;
+      }
+   }
+   #endregion
+
+   public static class Parser
+   {
+      public static void Parse(Source source)
+      {
+         int ind = 0;
+         while (ind < source.LexerTokens.Count/* && source.LexerTokens[ind].Type != TokenType.END_OF_FILE*/)
+         {
+            ASTNode? node = ASTNode.Parse(source.LexerTokens, ref ind);
+            if (node == null/* || node.NodeType == ASTNodeType.UNDEFINED*/)
+            {
+               source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "No valid candidates for parsing token", source.LexerTokens[ind].FileLocation, true));
+               throw new Exception(); //todo: put a message in this
+            }
+            source.AddParserNode(node);
+         }
+         source.ParsingComplete();
+      }
+   }
+}
