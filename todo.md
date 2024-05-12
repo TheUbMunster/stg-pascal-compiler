@@ -1,6 +1,6 @@
 ## TODO
 * Add file config for various meta-compiler options (e.g., window size for source code printer, color profiles for source code printer)
-* Unit tests
+* Unit tests:
 	- More rigourously test LegalCharacterSet
 	- Rigourously test TT methods in Lexer & make more efficient
 	- Rigourously test Source.GetLineColFromFileLocation, GetLexTokenSourceLine etc.
@@ -19,3 +19,9 @@
 * Write Parser influenced by 6.1 & 6.2, possibly more.
 * Gather the flags and pass them to every function (lex, parse etc) so that these functions can make use of this information
 * Add the ability for AddMessage() to take multiple file locations in case a single error relates to multiple portions of the file.
+* To reduce confusion:
+	- Rename Token class to LexToken
+	- Rename TokenType enum values to have the "Lex" prefix
+	- Rename ASTNode deriving classes to have the "AST" prefix
+	- Rename ASTNodeType enum values to have the "AST" prefix
+	- Prefix ASTNode data members with _0 _1 _2 _3 ... etc in the order that those data fields represent the parsed data?

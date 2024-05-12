@@ -8,12 +8,36 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
+using System.Collections;
+using System.Net.Sockets;
 
 namespace PascalCompiler.Parser
 {
    public class ASTNode
    {
-      protected ASTNode() { } //when derived classes call the ctor, can we automate assigning the MySource?
+      protected ASTNode() 
+      {
+         //this automatically assigns the NodeType enum without derived types needing to worry about it.
+         //THIS ONLY WORKS IF THE "ASTNodeType" NAME MATCHES THE CORRESPONDING CLASS NAME!!!
+
+         //this needs to be re-addressed.
+         //Type tt = GetType();
+         //if (tt == typeof(ASTNode))
+         //   NodeType = ASTNodeType.UNDEFINED; //this can only happen if someone directly instantiates an object of type ASTNode (don't do that)
+         //while (tt!.BaseType != typeof(ASTNode))
+         //   tt = tt.BaseType!; //should be impossible to error, since this code is only executed by implementers?
+         //string typename = tt.Name; //gets name of direct derived instance
+         //try
+         //{
+         //   NodeType = Enum.Parse<ASTNodeType>(typename);
+         //}
+         //catch (ArgumentException e)
+         //{
+         //   throw new AggregateException("It seems like one of your derived ASTNode types does not match an ASTNodeType enum name", e);
+         //}
+         //at this point just use GetType().Name and use that instead of an enum lol.
+      }
+      //when derived classes call the ctor, can we automate assigning the MySource?
       //maybe implement this concept in the base class ASTNode?
       //protected List<ASTNode || Token> children;
       //That way we can automate things like FileLocation as get => children[0].FileLocation
@@ -25,11 +49,45 @@ namespace PascalCompiler.Parser
 
       //and automate ConcatContent get => string.Join("", children.Select(x => x.Content));
       //same thing with NodeLength
+
+      //after thinking about the above for a bit, I've made a few observations and had a few thoughts:
+      //an element of "data" within an AST node is either another AST node or a lexer token.
+      //sometimes this data is organized in complex structures (e.g., a list of ast nodes, or a matrix
+      //of tuples of ast nodes and lexer tokens).
+      //Although a list of "children" would be useful for the above reasons, any consumers of these
+      //types could sometimes have a hard time finding what they're looking for in this array.
+      //therefore, we should have an abstract coroutine in ASTNode that's overridden in each of the
+      //inheritors that yields enumerator elements "in order". That way, the above features like
+      //ConcatContent can be automatically generated.
+      //The IEnumerable type needs to encapsulate either ASTNodes or Lexer tokens, and a call
+      //to content/concatcontent or filelocation needs to be router to the proper object depending
+      //on what the object is.
+      //this would most easily be implemented with a shared interface, but that would tie both the
+      //lexer and the parser to a shared backing source, and I'd rather keep them more separate.
+      //instead, maybe a wrapper class for this functionality?
       protected Source MySource { get; init; } = null!;
-      public virtual ASTNodeType NodeType { get; }
-      public int FileLocation { get; set; } = -1;
-      public int NodeLength { get; set; } = -1;
-      public string ConcatContent { get; set; } = null!; //todo: calculate and cache on first access?
+      public virtual ASTNodeType NodeType { get; private init; }
+      public int FileLocation { get; set; } = -1; //instead of assigning the backup value sometimes and not others, just assign this manually all the time so we don't get confused.
+      private int? nodeLength = null;
+      public int NodeLength
+      { //this and "Content" *look* like abababab type recursion, but aren't so long as any AST node's components eventually end at an AST node entirely comprised by only lexer tokens.
+         get
+         {
+            if (nodeLength == null)
+               nodeLength = FlattenedData().Select(x => x.Length).Aggregate((l, r) => l + r);
+            return nodeLength.Value;
+         }
+      }
+      private string? content = null;
+      public string Content 
+      {
+         get 
+         {
+            if (content == null)
+               content = FlattenedData().Select(x => x.Content).Aggregate((l, r) => l + r);
+            return content;
+         } 
+      }
       //adding the below concept as a feature only makes sense if every non-terminal grammar node in the spec
       //was structured in such a way where the representing AST node is either fully "effectively empty"
       //or fully populated, and nothing in between. That probably isn't true.
@@ -39,7 +97,7 @@ namespace PascalCompiler.Parser
       ///// </summary>
       //public bool EffectivelyEmpty { get; protected set; } = false;
 
-      public static ASTNode? Parse(IReadOnlyList<Token> tokens, ref int index)
+      public static ASTNode? Parse(Source source, ref int index)
       {
          ASTNode? result = null;
          //list of:
@@ -48,9 +106,19 @@ namespace PascalCompiler.Parser
          return result;
       }
 
-      protected static Token Peek(List<Token> tokens, int index)
+      protected static Token Peek(IReadOnlyList<Token> tokens, int index)
       {
          return index < tokens.Count ? tokens[index] : Token.UndefinedToken;
+      }
+
+      protected virtual IEnumerable<MeasurableTokenesq> FlattenedData()
+      {
+         throw new NotImplementedException(); //if this is ever thrown, the compiler has a bug. (I.e., someone didn't implement it!)
+      }
+
+      public override string ToString()
+      {
+         return $"This ASTNode's ToString() function was not overrided by it's deriver! Type: {GetType().Name}";
       }
    }
 
@@ -98,20 +166,24 @@ namespace PascalCompiler.Parser
 
    public class LabelDeclarationPart : ASTNode
    {
+      //items to complete a derived ASTNode:
+      //Add all relevant ASTNode/Lexer Token data members
+      //Write the ToString() function
+      //In parser: need to assign data members & "FileLocation" & "MySource"
+      //overload FlattenedData()
       public Token? FirstLabelWordSymbolToken { get; private set; } = null;
       public LabelValue? FirstLabelValue { get; private set; } = null;
       public IReadOnlyList<(Token commaToken, LabelValue labelValue)>? SecondaryLabels { get; private set; } = null;
       public Token? ClosingSemicolonToken { get; private set; } = null;
-      public override ASTNodeType NodeType { get => ASTNodeType.LabelDeclarationPart; }
       public override string ToString()
       {
-         //these should always be ALL null or NONE null
+         //these should always be ALL null or NONE null (add debug for this?)
          if (FirstLabelWordSymbolToken == null || FirstLabelValue == null || SecondaryLabels == null || ClosingSemicolonToken == null)
             return $"({NodeType})";
-         else return $"({NodeType} {FirstLabelWordSymbolToken} {FirstLabelValue} {string.Join(string.Empty, SecondaryLabels.Select(x => $"{x.commaToken} {x.labelValue}"))} {ClosingSemicolonToken})";
+         else return $"({NodeType} {FirstLabelWordSymbolToken} {FirstLabelValue} {string.Join(' ', SecondaryLabels.Select(x => $"{x.commaToken} {x.labelValue}"))} {ClosingSemicolonToken})";
       }
       //This particular parse function contains most of the patterns used. Reference it as an example
-      public new static LabelDeclarationPart? Parse(List<Token> tokens, ref int index)
+      public new static LabelDeclarationPart? Parse(Source source, ref int index)
       {
          //first of all, here is how the spec defines this item (see 6.2.1):
          //label-declaration-part = [ 'label' label { ',' label } ';' ] .
@@ -126,6 +198,7 @@ namespace PascalCompiler.Parser
          //prelude (most parse functions should have this)
          int tind = index;
          LabelDeclarationPart? node = null; //matches return type/containing class type
+         var tokens = source.LexerTokens;
          //grab all contiguous simple tokens
          Token firstLabelWordSymbolTok = Peek(tokens, tind++);
          //if the next item is an ASTNode, then verify your tokens collected so far
@@ -169,9 +242,24 @@ namespace PascalCompiler.Parser
          }
          return node;
       }
+      protected override IEnumerable<MeasurableTokenesq> FlattenedData()
+      {
+         if (FirstLabelWordSymbolToken != null)
+            yield return new MeasurableTokenesq(FirstLabelWordSymbolToken);
+         if (FirstLabelValue != null)
+            yield return new MeasurableTokenesq(FirstLabelValue);
+         if (SecondaryLabels != null)
+            foreach (var e in SecondaryLabels)
+            {
+               yield return new MeasurableTokenesq(e.commaToken);
+               yield return new MeasurableTokenesq(e.labelValue);
+            }
+         if (ClosingSemicolonToken != null)
+            yield return new MeasurableTokenesq(ClosingSemicolonToken);
+      }
    }
 
-   public class ConstantDefinitionPart : ASTNode
+   public class ConstantDefinitionPart : ASTNode //needs verify
    {
       public Token? FirstConstWordSymbolToken { get; private set; } = null;
       public ConstantDefinition? FirstConstantDefinition { get; private set; } = null;
@@ -185,7 +273,7 @@ namespace PascalCompiler.Parser
             return $"({NodeType})";
          else return $"({NodeType} {FirstConstWordSymbolToken} {FirstConstantDefinition} {FirstSemicolonToken} {string.Join(string.Empty, SecondaryConstantDefinitions.Select(x => $"{x.constantDefinition} {x.semicolonToken}"))})";
       }
-      public new static ConstantDefinitionPart? Parse(List<Token> tokens, ref int index)
+      public new static ConstantDefinitionPart? Parse(IReadOnlyList<Token> tokens, ref int index)
       { //TODOTODOTODOTODOTODOTODO but need to do ConstantDefinition first
          int tind = index;
          ConstantDefinitionPart? node = null;
@@ -244,7 +332,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-   public class LabelValue : ASTNode //not sure what this should derive from
+   public class LabelValue : ASTNode //needs verify
    {
       public Token DigitSequenceToken { get; private set; } = null!;
       public override ASTNodeType NodeType { get => ASTNodeType.LabelValue; }
@@ -252,7 +340,7 @@ namespace PascalCompiler.Parser
       {
          return $"({NodeType} {DigitSequenceToken})";
       }
-      public new static LabelValue? Parse(List<Token> tokens, ref int index)
+      public new static LabelValue? Parse(IReadOnlyList<Token> tokens, ref int index)
       {
          int tind = index;
          LabelValue? node = null;
@@ -271,43 +359,170 @@ namespace PascalCompiler.Parser
       }
    }
 
-   public class ConstantDefinition : ASTNode
+   public class ConstantDefinition : ASTNode //needs verify
    {
-      //identifier node
+      public Identifier Identifier { get; private set; } = null!;
       public Token EqualsToken { get; private set; } = null!;
-      //constant node
-      public override ASTNodeType NodeType { get => ASTNodeType.ConstantDefinition; }
+      public Constant Constant { get; private set; } = null!;
       public override string ToString()
       {
-         return $"({NodeType} {} {} {})";
+         return $"({NodeType} {Identifier} {EqualsToken} {Constant})";
       }
-      public new static ConstantDefinition? Parse(List<Token> tokens, ref int index)
+      public new static ConstantDefinition? Parse(Source source, ref int index)
       {
          int tind = index;
          ConstantDefinition? node = null;
-         
+         var tokens = source.LexerTokens;
+         Identifier? id = Identifier.Parse(source, ref tind);
+         if (id != null)
+         {
+            Token eqToken = Peek(tokens, tind++);
+            if (eqToken.Type == TokenType.Equals)
+            {
+               Constant? constant = Constant.Parse(source, ref tind);
+               if (constant != null)
+               {
+                  node = new ConstantDefinition()
+                  {
+                     Identifier = id,
+                     EqualsToken = eqToken,
+                     Constant = constant,
+                     MySource = source,
+                     FileLocation = id.FileLocation
+                  };
+               }
+            }
+         }
          index = node == null ? index : tind;
          return node;
+      }
+      protected override IEnumerable<MeasurableTokenesq> FlattenedData()
+      {
+         yield return new MeasurableTokenesq(Identifier);
+         yield return new MeasurableTokenesq(EqualsToken);
+         yield return new MeasurableTokenesq(Constant);
       }
    }
 
    public class Identifier : ASTNode
-   {
-      public override ASTNodeType NodeType { get => ASTNodeType.Identifier; }
+   { //directive should be basically the same
+      public Token FirstLetterSequence { get; private set; } = null!;
+      public IReadOnlyList<Token>? LetterAndDigitSequences { get; private set; } = null;
       public override string ToString()
       {
-         return $"({NodeType} {})";
+         if (LetterAndDigitSequences == null)
+            return $"({NodeType} {FirstLetterSequence})";
+         return $"({NodeType} {FirstLetterSequence} {string.Join(' ', LetterAndDigitSequences)})";
       }
-      public new static Identifier? Parse(List<Token> tokens, ref int index)
+      public new static Identifier? Parse(Source source, ref int index)
       {
          int tind = index;
          Identifier? node = null;
+         var tokens = source.LexerTokens;
          //spec definition: identifier = letter { letter | digit }.
          //should match our functionality of "" = SEQ_Letters { SEQ_Letters | SEQ_Digits }, but this might be worth correcting.
+         Token firstLetterToken = Peek(tokens, tind++);
+         if (firstLetterToken.Type == TokenType.SEQ_Letters)
+         {
+            List<Token> seqs = new List<Token>();
+            Token t = Peek(tokens, tind++);
+            while (t.Type == TokenType.SEQ_Letters || t.Type == TokenType.SEQ_Digits) 
+            {
+               seqs.Add(t);
+               t = Peek(tokens, tind++);
+            }
+            node = new Identifier() 
+            {
+               FirstLetterSequence = firstLetterToken,
+               LetterAndDigitSequences = seqs,
+               FileLocation = firstLetterToken.FileLocation,
+            };
+         }
          index = node == null ? index : tind;
          return node;
       }
+      protected override IEnumerable<MeasurableTokenesq> FlattenedData()
+      {
+         yield return new MeasurableTokenesq(FirstLetterSequence);
+         if (LetterAndDigitSequences != null)
+            foreach (var e in LetterAndDigitSequences)
+               yield return new MeasurableTokenesq(e);
+      }
    }
+
+   public class Constant : ASTNode
+   {
+      public new static Constant? Parse(Source source, ref int index)
+      {
+         Constant? result = null;
+         result ??= NumberConstant.Parse(source, ref index);
+         result ??= StringConstant.Parse(source, ref index);
+         return result;
+      }
+   }
+
+   public class NumberConstant : Constant
+   {
+      public Token SignToken { get; private set; } = null!;
+      public override string ToString()
+      {
+         return $"";
+      }
+      public new static NumberConstant? Parse(Source source, ref int index)
+      {
+         int tind = index;
+         NumberConstant? node = null;
+         var tokens = source.LexerTokens;
+
+         Token signTok = Peek(tokens, tind++);
+         if (signTok.Type == TokenType.Plus ||
+             signTok.Type == TokenType.Minus)
+         {
+            //get unsigned-number or constant-identifier
+         }
+
+         index = node == null ? index : tind;
+         return node;
+      }
+      protected override IEnumerable<MeasurableTokenesq> FlattenedData()
+      {
+         yield return new MeasurableTokenesq(SignToken);
+      }
+   }
+
+   public class StringConstant : Constant
+   {
+      public Token CharacterString { get; private set; } = null!;
+      public override string ToString()
+      {
+         return $"{NodeType} {CharacterString}";
+      }
+      public new static StringConstant? Parse(Source source, ref int index)
+      {
+         int tind = index;
+         StringConstant? node = null;
+         var tokens = source.LexerTokens;
+
+         Token stringTok = Peek(tokens, tind++);
+         if (stringTok.Type == TokenType.String)
+         {
+            node = new StringConstant()
+            {
+               CharacterString = stringTok,
+               FileLocation = stringTok.FileLocation,
+               MySource = source
+            };
+         }
+
+         index = node == null ? index : tind;
+         return node;
+      }
+      protected override IEnumerable<MeasurableTokenesq> FlattenedData()
+      {
+         yield return new MeasurableTokenesq(CharacterString);
+      }
+   }
+
    #endregion
 
    public static class Parser
@@ -317,7 +532,7 @@ namespace PascalCompiler.Parser
          int ind = 0;
          while (ind < source.LexerTokens.Count/* && source.LexerTokens[ind].Type != TokenType.END_OF_FILE*/)
          {
-            ASTNode? node = ASTNode.Parse(source.LexerTokens, ref ind);
+            ASTNode? node = ASTNode.Parse(source, ref ind);
             if (node == null/* || node.NodeType == ASTNodeType.UNDEFINED*/)
             {
                source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "No valid candidates for parsing token", source.LexerTokens[ind].FileLocation, true));

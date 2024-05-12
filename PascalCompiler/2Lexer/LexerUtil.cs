@@ -1,4 +1,5 @@
-﻿using System;
+﻿using PascalCompiler.Parser;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,6 +7,22 @@ using System.Threading.Tasks;
 
 namespace PascalCompiler.Lexer
 {
+   public class MeasurableTokenesq
+   { //paramless ctor is hidden, one of these has to be non-null
+      Token? tok;
+      ASTNode? node;
+      public MeasurableTokenesq(Token t) 
+      {
+         tok = t;
+      }
+      public MeasurableTokenesq(ASTNode n)
+      {
+         node = n;
+      }
+      public int FileLocation { get => tok == null ? node!.FileLocation : tok.FileLocation; }
+      public int Length { get => Content.Length; }
+      public string Content { get => tok == null ? node!.Content : tok.Content; } //Token & ASTNode will handle calc/cache
+   }
    public class LexerException : Exception
    {
       public LexerException(string? message) : base(message) { }

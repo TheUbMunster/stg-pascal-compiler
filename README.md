@@ -15,6 +15,10 @@ Lexer->Parser->Check->Emit->Assemble (MASM)->Link (ld)
 This compiler supports optimization flags (O0, O1, O2, O3). Not that any optimizations are particularly impressive, but simply
 proof that the code structure supports conditional optimization goals.
 
+As a quick side note, after getting around to writing the parser portion, I've determined that the spec's grammar structure
+freaking sucks. There's no clear categories to the grammar, and although some non-terminals are comprised of a deterministic
+number of children, others are defined to be a messy expression of optional elements, and *or* expressions causing silly branching.
+
 One of the fun parts about writing compilers is how oftentimes the spec leaves to the developer certain implementation details.
 Besides adhering to ISO/IEC 7185:1990(E), here are the details about various parts of my compiler that are relevant to those who use it.
 

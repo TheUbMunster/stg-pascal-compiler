@@ -17,7 +17,7 @@ namespace PascalCompiler.Lexer
    public sealed class Token
    {
       #region Consts
-      public static readonly Token UndefinedToken = new Token() { Content = string.Empty, Type = TokenType.UNDEFINED };
+      public static readonly Token UndefinedToken = new Token() { Type = TokenType.UNDEFINED };
       //private const string dontMatchFollowingChars = "(?=([^A-Za-z0-9\\r\\n]{1})|(\\z))";
       private static readonly IReadOnlyDictionary<TokenType, Regex> regexes = new Dictionary<TokenType, Regex>()
       {
@@ -102,8 +102,7 @@ namespace PascalCompiler.Lexer
          Match m = t.Reg.Match(src.FileContents, fileLocation);
          if (m.Success)
          {
-            t.Content = m.Value;
-            t.TokenLength = m.Value.Length;
+            t.TokenLength = m.Value.Length; //can only assign length if it was a success
             return t;
          }
          else return null;
@@ -117,8 +116,19 @@ namespace PascalCompiler.Lexer
       public Regex Reg { get; private init; } = null!;
       //These three are assigned by the lexer.
       public int FileLocation { get; set; } = -1;
-      public int TokenLength { get; set; } = -1; //todo: get => Content.Length
-      public string Content { get; set; } = null!; //todo: calculate this via substring of the source using FileLocation and TokenLength + cache it.
+      public int TokenLength { get; set; } = -1;
+      private string? content = null;
+      public string Content 
+      {
+         get
+         {
+            if (FileLocation < 0 || FileLocation >= MySource.FileContents.Length)
+               return string.Empty; //skip caching, (e.g., TokenType.UNDEFINED)
+            if (content == null) 
+               content = MySource.FileContents.Substring(FileLocation, TokenLength);
+            return Content;
+         }
+      }
       #endregion
 
       #region Overrides
