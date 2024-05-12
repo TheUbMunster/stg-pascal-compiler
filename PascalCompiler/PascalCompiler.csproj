@@ -14,4 +14,8 @@
 	</None>
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="3Parser\" />
+  </ItemGroup>
+
 </Project>

@@ -5,10 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using PascalCompiler.Lexer;
+using PascalCompiler.Scanner;
 
 namespace PascalCompiler
 {
-   static class CommandProcessor
+    static class CommandProcessor
    {
       #region Consts
       private static Flag[] flagDefs = new Flag[]

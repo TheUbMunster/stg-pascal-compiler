@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using PascalCompiler.Lexer;
 
-namespace PascalCompiler
+namespace PascalCompiler.Scanner
 {
    public class Source
    {

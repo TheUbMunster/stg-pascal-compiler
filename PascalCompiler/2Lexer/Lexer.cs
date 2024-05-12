@@ -10,10 +10,11 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 using System.Reflection.Emit;
 using System.Drawing;
 using System.Reflection.Metadata;
+using PascalCompiler.Scanner;
 
 namespace PascalCompiler.Lexer
 {
-   public sealed class Token
+    public sealed class Token
    {
       #region Consts
       //private const string dontMatchFollowingChars = "(?=([^A-Za-z0-9\\r\\n]{1})|(\\z))";
@@ -115,7 +116,7 @@ namespace PascalCompiler.Lexer
       public Regex Reg { get; private init; } = null!;
       //These three are assigned by the lexer.
       public int FileLocation { get; set; } = -1;
-      public int TokenLength { get; set; } = -1;
+      public int TokenLength { get; set; } = -1; //todo: get => Content.Length
       public string Content { get; set; } = null!; //todo: calculate this via substring of the source using FileLocation and TokenLength + cache it.
       #endregion
 
