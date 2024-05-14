@@ -38,6 +38,7 @@ namespace PascalCompiler
          new Flag("O3", "This flag indicates to the compiler to perform all optimizations",
             new[] { "r", "l", "p", "t", "s", "O0", "O1", "O2" }),
          new Flag("n", "The output name of the log file or executable", new string[] { }), //todo: implement logging
+         //todo: add "interpret" flag
       };
       #endregion
 
@@ -65,7 +66,7 @@ namespace PascalCompiler
                "\t--help | -help | -h - Prints this help message." + Environment.NewLine + Environment.NewLine +
                string.Join(Environment.NewLine, flagDefs.Select(x => $"\t-{x.flagName} - {x.helpMessage}{Environment.NewLine}\tThis flag cannot appear with the following flags: {string.Join(", ", x.mutualExclusionFlags)}{Environment.NewLine}")) + 
                "Filepath:" + Environment.NewLine +
-               "\tfilepath(s) to pascal source file(s) to compile.");
+               "\tfilepath(s) to pascal source file(s) to compile."); //need to disambiguate source file(s) from program arguments (when running via interpreter mode, maybe make each file be preceeded with -f, i.e., -ffilename.pas).
             return 0;
          }
          StringBuilder errorAgg = new StringBuilder();

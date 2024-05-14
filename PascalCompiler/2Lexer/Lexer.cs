@@ -20,7 +20,8 @@ namespace PascalCompiler.Lexer
       public static readonly Token UndefinedToken = new Token() { Type = TokenType.UNDEFINED };
       //private const string dontMatchFollowingChars = "(?=([^A-Za-z0-9\\r\\n]{1})|(\\z))";
       private static readonly IReadOnlyDictionary<TokenType, Regex> regexes = new Dictionary<TokenType, Regex>()
-      {
+      //test if this new pattern works at the very beginning of the file (i.e., lookbehind has no letter).
+      { //    \\G(?<=[^A-Za-z])and(?=([^A-Za-z0-9]{1})|(\\z))          //start of previous match, the immediately preceeding character to the keyword isn't a letter, the keyword, then the immediately following character to the keyword isn't a letter or number, or that it's the end of the string.
          //word-symbol (see 6.1.2)
          { TokenType.And, new Regex("\\Gand(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },
          { TokenType.Array, new Regex("\\Garray(?=([^A-Za-z0-9]{1})|(\\z))", RegexOptions.Compiled | RegexOptions.IgnoreCase) },

@@ -4,13 +4,18 @@
 
 **The below information may not be applicable (yet) as this is a WIP**
 
-This is a Pascal compiler I wrote as a personal project in C#, specifically, adhering to ISO/IEC 7185:1990(E).
+This is a Pascal compiler & interpreter I wrote as a personal project in C#, specifically, adhering to ISO/IEC 7185:1990(E).
 Any reference to "the spec", refers to this spec.
 It probably has some flaws, so I wouldn't use it for anything important, just a fun project.
 Shooting for ?linux x86_64 ABI?.
 
 Compiler structure:
-Lexer->Parser->Check->Emit->Assemble (MASM)->Link (ld)
+* Scanner->Lexer->Parser->Check->Emit->Assemble (MASM)->Link (ld)
+
+Interpreter structure:
+* Scanner->Lexer->Parser->Check->Interpreter
+
+All stages of the above two processes that are spelled the same, are indeed the same stages that are shared between the two processes.
 
 This compiler supports optimization flags (O0, O1, O2, O3). Not that any optimizations are particularly impressive, but simply
 proof that the code structure supports conditional optimization goals.
@@ -43,3 +48,8 @@ cause the compiler to emit a "you shouldn't use old-mac style line endings for f
 
 For now, I only guarantee functionality with UTF8 encoded source files. Any other encodings may work, but I haven't tested for them.
 This may change in the future.
+
+## compliance level
+
+The spec refers to level 0 and level 1 compliance. Level 0 does not include conformant-array-parameter, whereas level 1 does. This compiler
+is level 1 compliant, but these extra features can be disabled to cause the compiler to function only in a level 0 compliance state via [TODO].
