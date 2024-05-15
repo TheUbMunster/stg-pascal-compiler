@@ -31,7 +31,7 @@ Besides adhering to ISO/IEC 7185:1990(E), here are the details about various par
 
 Referenced at the beginning of section 6.1.7 is lexem "string-character". This lexem is a set of characters determined to be legal within a string.
 Although it's contents are up to the compiler developer (me), it does have a restriction, namely, the apostrophe ''' is not a legal string-character.
-For now (subject to change), every character in the "legalChars" array at the top of LegalCharacterSet.cs except the apostrophe is a legal string-character.
+For now (subject to change), every character in the "legalChars" array at the top of LegalCharacterSet.cs except the apostrophe, CR and LF are a legal string-character.
 
 ## up arrow
 

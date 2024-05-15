@@ -64,8 +64,8 @@ namespace PascalCompiler.Lexer
          { TokenType.With,      new Regex("\\G(?<=([^A-Za-z])|(^))(?i:with)(?=([^A-Za-z0-9])|(\\z))", RegexOptions.Compiled) },
 
          //character-strings (see 6.1.7)
-         //don't need to worry about illegal chars, scanner already took care of that.
-         { TokenType.CharacterString, new Regex("\\G'.*?'", RegexOptions.Compiled) },
+         //don't need to worry about crazy illegal chars (e.g., bell), scanner already took care of that.
+         { TokenType.CharacterString, new Regex("\\G'[^'\\r\\n]*?'", RegexOptions.Compiled) },
 
          //digit (see 6.1.1)
          { TokenType.Digit, new Regex("\\G[0-9]", RegexOptions.Compiled) },
@@ -98,7 +98,7 @@ namespace PascalCompiler.Lexer
 
          //commentary (see 6.1.8)
          //note: if a comment spans multiple lines, that comment fully consumed the linebreaks; i.e., there are no LINEBREAK tokens interdispersed throughout the comment.
-         { TokenType.Comment, new Regex("\\G({|\\(\\*).*?(}|\\*\\))", RegexOptions.Compiled | RegexOptions.IgnoreCase) }, //we don't have to worry about filtering the ., because the scan step already did that
+         { TokenType.Comment, new Regex("\\G({|\\(\\*)(.|\\n)*?(}|\\*\\))", RegexOptions.Compiled) }, //we don't have to worry about filtering the ., because the scan step already did that
 
          //not explicit via spec, but useful for this implementation.
          { TokenType.WHITESPACE, new Regex("\\G[ \\t]+", RegexOptions.Compiled) },

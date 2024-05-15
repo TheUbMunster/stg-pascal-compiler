@@ -123,7 +123,34 @@ namespace PascalCompiler.Parser
    }
 
    #region Node Grammatical Classes
-   /*
+   //need to design parser classes to work well for all sorts of grammar defs. Here
+   //are some examples of the unique ones, hopefully these cover all the bases.
+
+   //category-esq:
+   //actual-parameter = expression | variable-access | procedure-identifier | function-identifier .
+
+   //ord terminals:
+   //digit = '0' | '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' .
+
+   //1 or more:
+   //directive = letter { letter | digit } .
+
+   //big mix of terminals and non-terminals:
+   //for-statement = 'for' control-variable ':=' initial-value ( 'to' | 'downto' ) final-value 'do' statement .
+
+   //entirely optional:
+   //readln-parameter-list = [ '(' ( file-variable | variable-access ) { ',' variable-access } ')' ] .
+   //label-declaration-part = [ 'label' label { ',' label } ';' ] .
+
+
+
+
+
+
+
+
+
+
    //hold off on the concept below until experience indicates if it's necessary
    //to deambiguize terminal and non-terminals, let the classname suffix T mean "terminal", and NT mean "nonterminal"
 
@@ -523,7 +550,6 @@ namespace PascalCompiler.Parser
          yield return new MeasurableTokenesq(CharacterString);
       }
    }
-   */
    #endregion
 
    public static class Parser

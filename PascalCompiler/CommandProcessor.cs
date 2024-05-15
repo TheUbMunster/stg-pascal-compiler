@@ -153,7 +153,9 @@ namespace PascalCompiler
             Console.WriteLine("Compilation succeeded: lexical analysis complete");
             return 0;
          }
-
+         //=======
+         // PARSE
+         //=======
 
 
          throw new NotImplementedException(); //at the very end

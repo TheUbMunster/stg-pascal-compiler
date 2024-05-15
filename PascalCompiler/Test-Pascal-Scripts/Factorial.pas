@@ -6,6 +6,7 @@ begin
     readln(num);
     fact := 1;
     for i := 1 to num do
-        fact := fact * i; (*factorialize*) 
+        fact := fact * i; (*factorialize
+        yes yes*) 
     writeln('Factorial of ', num, ' is: ', fact);
 end.
