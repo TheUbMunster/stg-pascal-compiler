@@ -123,14 +123,15 @@ namespace PascalCompiler.Parser
    }
 
    #region Node Grammatical Classes
+   /*
    //hold off on the concept below until experience indicates if it's necessary
    //to deambiguize terminal and non-terminals, let the classname suffix T mean "terminal", and NT mean "nonterminal"
 
    //hold off on the concept below until experience indicates if it's necessary
    //additionally, to deambiguize static concepts with values (e.g., "label" keyword vs "label" value), let the classname prefix S mean static, and V mean value
-   /*
-    * iirc, a "grammatical class" type node according to my patterns is any non-terminal symbol, even if it resolves only to one (non)-terminal child symbol.
-    */
+   //
+   //  iirc, a "grammatical class" type node according to my patterns is any non-terminal symbol, even if it resolves only to one (non)-terminal child symbol.
+   //
 
    //maybe this? https://stackoverflow.com/questions/857705/get-all-derived-types-of-a-type
    //chain the above concept with:
@@ -522,7 +523,7 @@ namespace PascalCompiler.Parser
          yield return new MeasurableTokenesq(CharacterString);
       }
    }
-
+   */
    #endregion
 
    public static class Parser

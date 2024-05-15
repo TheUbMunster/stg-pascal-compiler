@@ -162,9 +162,9 @@ namespace PascalCompiler
       {
          IReadOnlyDictionary<TokenType, ConsoleColor> lexemColors = new Dictionary<TokenType, ConsoleColor>()
          {
-            { TokenType.String, ConsoleColor.DarkRed },
-            { TokenType.SEQ_Digits, ConsoleColor.Cyan },
-            { TokenType.SEQ_Letters, ConsoleColor.Cyan },
+            { TokenType.CharacterString, ConsoleColor.DarkRed },
+            { TokenType.Digit, ConsoleColor.Cyan },
+            { TokenType.Letter, ConsoleColor.Cyan },
             //keywords
             { TokenType.And, ConsoleColor.Blue },
             { TokenType.Array, ConsoleColor.Blue },

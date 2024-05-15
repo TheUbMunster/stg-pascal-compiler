@@ -25,3 +25,5 @@
 	- Rename ASTNode deriving classes to have the "AST" prefix
 	- Rename ASTNodeType enum values to have the "AST" prefix
 	- Prefix ASTNode data members with _0 _1 _2 _3 ... etc in the order that those data fields represent the parsed data?
+
+It seems that this grammar has some ambiguous situations. E.g., a simple character-string can be parsed either as a constant or an unsigned-constant. What to do?
