@@ -16,6 +16,12 @@ namespace PascalCompiler.Parser
 {
    public class ASTNode
    {
+      private static readonly IReadOnlySet<TokenType> skippableTokenTypes = new HashSet<TokenType>() //not IReadOnlyList bc I need List<>.Contains()
+      { //tokens of these types are treated as though they don't exist during the parsing step.
+         TokenType.Comment,
+         TokenType.WHITESPACE,
+         TokenType.LINEBREAK
+      };
       protected ASTNode()
       {
          //this automatically assigns the NodeType enum without derived types needing to worry about it.
@@ -69,34 +75,8 @@ namespace PascalCompiler.Parser
       protected Source MySource { get; init; } = null!;
       public virtual ASTNodeType NodeType { get; private init; }
       public int FileLocation { get; set; } = -1; //instead of assigning the backup value sometimes and not others, just assign this manually all the time so we don't get confused.
-      //private int? nodeLength = null;
       public int NodeLength { get; protected set; } = -1;
-      //{ //this and "Content" *look* like abababab type recursion, but aren't so long as any AST node's components eventually end at an AST node entirely comprised by only lexer tokens.
-      //   get
-      //   {
-      //      if (nodeLength == null)
-      //         nodeLength = FlattenedData().Select(x => x.Length).Aggregate((l, r) => l + r);
-      //      return nodeLength.Value;
-      //   }
-      //}
-      //private string? content = null;
       public string Content { get; protected set; } = "Content of this AST node was not set via the Parser.";
-      //{
-      //   get 
-      //   {
-      //      if (content == null)
-      //         content = FlattenedData().Select(x => x.Content).Aggregate((l, r) => l + r);
-      //      return content;
-      //   } 
-      //}
-      //adding the below concept as a feature only makes sense if every non-terminal grammar node in the spec
-      //was structured in such a way where the representing AST node is either fully "effectively empty"
-      //or fully populated, and nothing in between. That probably isn't true.
-      ///// <summary>
-      ///// Is this AST node effectively empty? When true, the spec usually indicated that the definition of this AST node
-      ///// had the entirety of the contents defined as optional. This value is usually false.
-      ///// </summary>
-      //public bool EffectivelyEmpty { get; protected set; } = false;
 
       public static ASTNode? Parse(Source source, ref int index)
       {
@@ -107,19 +87,75 @@ namespace PascalCompiler.Parser
          return result;
       }
 
-      protected static Token Peek(IReadOnlyList<Token> tokens, int index)
+      protected static Token PopToken(Source source, ref int index, bool firstNonskippableToken = true)
       {
-         return index < tokens.Count ? tokens[index] : Token.UndefinedToken;
+         var tokens = source.LexerTokens;
+         Token? tok = Token.UndefinedToken;
+         for (; index < tokens.Count; index++)
+         {
+            if (skippableTokenTypes.Contains(tokens[index].Type))
+               continue;
+            else
+            {
+               tok = tokens[index];
+               break;
+            }
+         }
+         index++; //fix off-by-one
+         return tok!;
       }
 
-      //protected virtual IEnumerable<MeasurableTokenesq> FlattenedData()
+      //this doesn't work because Consume would need a way to generally consume a thing and assign it to a member, but do we assign it
+      //to the first member, or the second, or the third? What if one of the members is a list of things? How do we know if we need to 
+      //add it to the list or assign it to the member(s) after the list?
+      //suffers from the same problem as flattened data.
+      //protected bool Consume(TokenType tokenType)
       //{
-      //   throw new NotImplementedException(); //if this is ever thrown, the compiler has a bug. (I.e., someone didn't implement it!)
+      //   throw new NotImplementedException();
       //}
 
-      public override string ToString()
+      //protected bool Consume(ASTNodeType nodeType)
+      //{
+      //   throw new NotImplementedException();
+      //}
+
+      //this concept is useful, but can't work this way because the Consume() methods don't work.
+      //implement this concept in straight code that goes inside each parse function.
+      //protected void BeginUnifiedConsumableBlock()
+      //{
+      //   //if this method is called, all subsequent calls to Consume()
+      //   //must pass. If any of them fail, then they all fail and none are consumed.
+      //   //if all pass and then EndUnifiedConsumableBlock() is called, then all are consumed.
+      //}
+
+      //protected void EndUnifiedConsumableBlock()
+      //{
+
+      //}
+
+      public override sealed string ToString()
       {
-         return $"This ASTNode's ToString() function was not overrided by it's deriver! Type: {GetType().Name}";
+         throw new Exception($"The regular object.ToString() method was called on an object of type {GetType().Name}, you probably should have used ToString(int, bool)");
+         //return ToString(0, false);
+      }
+
+      public virtual string ToString(int indentLevel = 0, bool prettyPrint = true)
+      {
+         return $"This ASTNode's ToString(int, bool) function was not overrided by it's deriver! Type: {GetType().Name}";
+      }
+
+      /// <summary>
+      /// This function asserts that all the necessary fields are assigned during construction.
+      /// This includes situations where it might be legal for only some fields to be assigned,
+      /// but only in specific combinations. Required to be overrided and implemented in subclasses.
+      /// 
+      /// If assertion fails, that indicates a bug in the compiler, not a syntax/parse error in the source.
+      /// </summary>
+      protected virtual void AssertCorrectStructure()
+      {
+         //asserts that all the data fields are assigned correctly. If not, this adds a message to the source
+         //and throws an exception.
+         throw new NotImplementedException();
       }
    }
 
@@ -127,23 +163,82 @@ namespace PascalCompiler.Parser
 
    public class ActualParameter : ASTNode
    {
-      //content fields (tokens & nodes) go here.
+      public Expression? Expression { get; private init; } = null!;
+      public VariableAccess? VariableAccess { get; private init; } = null!;
+      public ProcedureIdentifier? ProcedureIdentifier { get; private init; } = null!;
+      public FunctionIdentifier? FunctionIdentifier { get; private init; } = null!;
       public override ASTNodeType NodeType { get => ASTNodeType.ActualParameter; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{new string('\t', indentLevel)}({NodeType}{Environment.NewLine}" +
+                   Expression != null ? $"{new string('\t', indentLevel + 1)}{Expression!.ToString(indentLevel + 1, prettyPrint)}{Environment.NewLine}" : string.Empty +
+                   VariableAccess != null ? $"{new string('\t', indentLevel + 1)}{VariableAccess!.ToString(indentLevel + 1, prettyPrint)}{Environment.NewLine}" : string.Empty +
+                   ProcedureIdentifier != null ? $"{new string('\t', indentLevel + 1)}{ProcedureIdentifier!.ToString(indentLevel + 1, prettyPrint)}{Environment.NewLine}" : string.Empty +
+                   FunctionIdentifier != null ? $"{new string('\t', indentLevel + 1)}{FunctionIdentifier!.ToString(indentLevel + 1, prettyPrint)}{Environment.NewLine}" : string.Empty +
+                   $"{new string('\t', indentLevel)})";
+         else
+            return $"({NodeType}" +
+                   Expression != null ? $"{Expression!.ToString(indentLevel + 1, prettyPrint)}" : string.Empty +
+                   VariableAccess != null ? $"{VariableAccess!.ToString(indentLevel + 1, prettyPrint)}" : string.Empty +
+                   ProcedureIdentifier != null ? $"{ProcedureIdentifier!.ToString(indentLevel + 1, prettyPrint)}" : string.Empty +
+                   FunctionIdentifier != null ? $"{FunctionIdentifier!.ToString(indentLevel + 1, prettyPrint)}" : string.Empty +
+                   $")";
+      }
+      protected override void AssertCorrectStructure()
+      {
+         int totalNonNull = 0;
+         totalNonNull += Expression != null ? 1 : 0;
+         totalNonNull += VariableAccess != null ? 1 : 0;
+         totalNonNull += ProcedureIdentifier != null ? 1 : 0;
+         totalNonNull += FunctionIdentifier != null ? 1 : 0;
+         //should be exactly one non-null
+         if (totalNonNull != 1)
+         {
+            throw new InvalidOperationException($"Compiler parse error in {GetType().Name} (compiler bug): invalid object state.");
+         }
       }
       public new static ActualParameter? Parse(Source source, ref int index)
       {
          int tind = index;
          ActualParameter? node = null;
 
+
+         //I don't like this pattern for grammar like "a = b | c | d | e .". Think of a better one
          //body
+         Expression? e = Expression.Parse(source, ref tind);
+         VariableAccess? v = null;
+         ProcedureIdentifier? p = null;
+         FunctionIdentifier? f = null;
+         if (e == null)
+         {
+            v = VariableAccess.Parse(source, ref tind); //we only want to attempt to parse if the previous one failed.
+            if (v == null)
+            {
+               p = ProcedureIdentifier.Parse(source, ref tind); //"" ""
+               if (p == null)
+               {
+                  f = FunctionIdentifier.Parse(source, ref tind); //"" ""
+               }
+            }
+         }
 
-         //if (fullyValid)
-         node = new ActualParameter() { MySource = source, FileLocation = -69, NodeLength = 420 };
+         if (e != null || v != null || p != null || f != null) //only one can be non-null
+         {
+            ASTNode content = ((((ASTNode?)e ?? v) ?? p) ?? f)!;
+            node = new ActualParameter()
+            {
+               MySource = source,
+               FileLocation = content.FileLocation,
+               NodeLength = content.NodeLength,
+               Expression = e,
+               VariableAccess = v,
+               ProcedureIdentifier = p,
+               FunctionIdentifier = f,
+            };
+         }
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -151,23 +246,88 @@ namespace PascalCompiler.Parser
 
    public class ActualParameterList : ASTNode
    {
-      //content fields (tokens & nodes) go here.
+      public Token OpenParenToken { get; private init; } = null!;
+      public ActualParameter ActualParameter { get; private init; } = null!;
+      public IReadOnlyList<(Token commaToken, ActualParameter actualParameter)> SecondaryActualParameters { get; private set; } = null!;
+      public Token CloseParenToken { get; private init; } = null!;
       public override ASTNodeType NodeType { get => ASTNodeType.ActualParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+         if (OpenParenToken == null || ActualParameter == null || SecondaryActualParameters == null || CloseParenToken == null)
+            throw new InvalidOperationException($"Compiler parse error in {GetType().Name} (compiler bug): invalid object state.");
       }
       public new static ActualParameterList? Parse(Source source, ref int index)
       {
-         int tind = index;
+         int tind = index, lengthAggr = 0;
          ActualParameterList? node = null;
 
-         //body
+         Token openParenTok = PopToken(source, ref tind); lengthAggr += openParenTok.TokenLength;
+         if (openParenTok.Type == TokenType.OpenParen)
+         {
+            ActualParameter? firstActualParameter = ActualParameter.Parse(source, ref tind); lengthAggr += firstActualParameter?.NodeLength ?? 0;
+            if (firstActualParameter != null)
+            {
+               List<(Token commaToken, ActualParameter actualParameter)> secondaryActualParameters = new();
+               {
+                  while (true)
+                  {
+                     int pretind = tind;
+                     Token tempComma = PopToken(source, ref tind);
+                     ActualParameter? tempActualParameter = ActualParameter.Parse(source, ref tind);
+                     if (tempComma.Type == TokenType.Comma && tempActualParameter != null)
+                     { //both exist (add to collection and continue)
+                        lengthAggr += tempComma.TokenLength;
+                        lengthAggr += tempActualParameter.NodeLength;
+                        secondaryActualParameters.Add((tempComma, tempActualParameter));
+                     }
+                     else //in any other situation
+                     {
+                        tind = pretind;
+                        break;
+                     }
+                     //else if (tempComma.Type != TokenType.Comma && tempActualParameter == null)
+                     //{ //neither exist (end gracefully)
+                     //   tind = pretind;
+                     //   break;
+                     //}
+                     //else if (tempComma.Type == TokenType.Comma && tempActualParameter == null)
+                     //{ //just comma exists (revert comma and end)
+                     //   tind = pretind;
+                     //   break;
+                     //}
+                     //else if (tempComma.Type != TokenType.Comma && tempActualParameter != null)
+                     //{ //suprising but technechally possible, consumed a non comma, then successfully parsed an ActualParameter (bad parse, revert both).
+                     //   tind = pretind;
+                     //   break;
+                     //}
+                  }
+               }
+               Token closingParenTok = PopToken(source, ref tind); lengthAggr += closingParenTok.TokenLength;
+               if (closingParenTok.Type == TokenType.CloseParen)
+               {
+                  node = new ActualParameterList()
+                  {
+                     MySource = source,
+                     FileLocation = openParenTok.FileLocation,
+                     NodeLength = lengthAggr, //unfortunately this doesn't include the lengths of the skippable tokens.
+                     OpenParenToken = openParenTok,
+                     ActualParameter = firstActualParameter,
+                     SecondaryActualParameters = secondaryActualParameters,
+                     CloseParenToken = closingParenTok,
+                  };
+               }
+            }
+         }
 
-         //if (fullyValid)
-         node = new ActualParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
-
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -177,10 +337,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.AddingOperator; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static AddingOperator? Parse(Source source, ref int index)
       {
@@ -192,43 +359,52 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new AddingOperator() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
    }
 
-   public class ApostropheImage : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ApostropheImage; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static ApostropheImage? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         ApostropheImage? node = null;
+   //unneeded
+   //public class ApostropheImage : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.ApostropheImage; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static ApostropheImage? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      ApostropheImage? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new ApostropheImage() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new ApostropheImage() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      index = node == null ? index : tind;
+   //      return node;
+   //   }
+   //}
 
    public class ArrayType : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ArrayType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ArrayType? Parse(Source source, ref int index)
       {
@@ -240,6 +416,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ArrayType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -249,10 +426,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ArrayVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ArrayVariable? Parse(Source source, ref int index)
       {
@@ -264,6 +448,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ArrayVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -273,10 +458,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.AssignmentStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static AssignmentStatement? Parse(Source source, ref int index)
       {
@@ -288,6 +480,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new AssignmentStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -297,10 +490,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.BaseType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static BaseType? Parse(Source source, ref int index)
       {
@@ -312,6 +512,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new BaseType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -321,10 +522,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Block; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Block? Parse(Source source, ref int index)
       {
@@ -336,6 +544,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Block() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -345,10 +554,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.BooleanExpression; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static BooleanExpression? Parse(Source source, ref int index)
       {
@@ -360,6 +576,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new BooleanExpression() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -369,10 +586,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.BoundIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static BoundIdentifier? Parse(Source source, ref int index)
       {
@@ -384,6 +608,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new BoundIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -393,10 +618,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.BufferVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static BufferVariable? Parse(Source source, ref int index)
       {
@@ -408,6 +640,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new BufferVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -417,10 +650,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.CaseConstant; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static CaseConstant? Parse(Source source, ref int index)
       {
@@ -432,6 +672,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new CaseConstant() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -441,10 +682,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.CaseConstantList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static CaseConstantList? Parse(Source source, ref int index)
       {
@@ -456,6 +704,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new CaseConstantList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -465,10 +714,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.CaseIndex; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static CaseIndex? Parse(Source source, ref int index)
       {
@@ -480,6 +736,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new CaseIndex() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -489,10 +746,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.CaseListElement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static CaseListElement? Parse(Source source, ref int index)
       {
@@ -504,6 +768,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new CaseListElement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -513,10 +778,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.CaseStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static CaseStatement? Parse(Source source, ref int index)
       {
@@ -528,43 +800,52 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new CaseStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
    }
 
-   public class CharacterString : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.CharacterString; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static CharacterString? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         CharacterString? node = null;
+   //unneeded
+   //public class CharacterString : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.CharacterString; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static CharacterString? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      CharacterString? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new CharacterString() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new CharacterString() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      index = node == null ? index : tind;
+   //      return node;
+   //   }
+   //}
 
    public class ComponentType : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ComponentType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ComponentType? Parse(Source source, ref int index)
       {
@@ -576,6 +857,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ComponentType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -585,10 +867,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ComponentVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ComponentVariable? Parse(Source source, ref int index)
       {
@@ -600,6 +889,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ComponentVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -609,10 +899,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.CompoundStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static CompoundStatement? Parse(Source source, ref int index)
       {
@@ -624,6 +921,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new CompoundStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -633,10 +931,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ConditionalStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ConditionalStatement? Parse(Source source, ref int index)
       {
@@ -648,6 +953,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ConditionalStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -657,10 +963,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ConformantArrayParameterSpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ConformantArrayParameterSpecification? Parse(Source source, ref int index)
       {
@@ -672,6 +985,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ConformantArrayParameterSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -681,10 +995,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ConformantArraySchema; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ConformantArraySchema? Parse(Source source, ref int index)
       {
@@ -696,6 +1017,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ConformantArraySchema() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -705,10 +1027,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Constant; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Constant? Parse(Source source, ref int index)
       {
@@ -720,6 +1049,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Constant() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -729,10 +1059,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ConstantDefinition; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ConstantDefinition? Parse(Source source, ref int index)
       {
@@ -744,6 +1081,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ConstantDefinition() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -753,10 +1091,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ConstantDefinitionPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ConstantDefinitionPart? Parse(Source source, ref int index)
       {
@@ -768,6 +1113,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ConstantDefinitionPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -777,10 +1123,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ConstantIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ConstantIdentifier? Parse(Source source, ref int index)
       {
@@ -792,6 +1145,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ConstantIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -801,10 +1155,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ControlVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ControlVariable? Parse(Source source, ref int index)
       {
@@ -816,43 +1177,52 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ControlVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
    }
 
-   public class Digit : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.Digit; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static Digit? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         Digit? node = null;
+   //unneeded
+   //public class Digit : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.Digit; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static Digit? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      Digit? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new Digit() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new Digit() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      node?.AssertCorrectStructure();
+   //      return node;
+   //   }
+   //}
 
    public class DigitSequence : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.DigitSequence; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static DigitSequence? Parse(Source source, ref int index)
       {
@@ -864,6 +1234,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new DigitSequence() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -873,10 +1244,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Directive; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Directive? Parse(Source source, ref int index)
       {
@@ -888,6 +1266,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Directive() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -897,10 +1276,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.DomainType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static DomainType? Parse(Source source, ref int index)
       {
@@ -912,6 +1298,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new DomainType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -921,10 +1308,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ElsePart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ElsePart? Parse(Source source, ref int index)
       {
@@ -936,6 +1330,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ElsePart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -945,10 +1340,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.EmptyStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static EmptyStatement? Parse(Source source, ref int index)
       {
@@ -960,6 +1362,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new EmptyStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -969,10 +1372,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.EntireVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static EntireVariable? Parse(Source source, ref int index)
       {
@@ -984,6 +1394,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new EntireVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -993,10 +1404,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.EnumeratedType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static EnumeratedType? Parse(Source source, ref int index)
       {
@@ -1008,6 +1426,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new EnumeratedType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1017,10 +1436,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Expression; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Expression? Parse(Source source, ref int index)
       {
@@ -1032,6 +1458,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Expression() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1041,10 +1468,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Factor; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Factor? Parse(Source source, ref int index)
       {
@@ -1056,6 +1490,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Factor() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1065,10 +1500,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FieldDesignator; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FieldDesignator? Parse(Source source, ref int index)
       {
@@ -1080,6 +1522,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FieldDesignator() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1089,10 +1532,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FieldDesignatorIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FieldDesignatorIdentifier? Parse(Source source, ref int index)
       {
@@ -1104,6 +1554,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FieldDesignatorIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1113,10 +1564,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FieldIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FieldIdentifier? Parse(Source source, ref int index)
       {
@@ -1128,6 +1586,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FieldIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1137,10 +1596,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FieldList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FieldList? Parse(Source source, ref int index)
       {
@@ -1152,6 +1618,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FieldList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1161,10 +1628,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FieldSpecifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FieldSpecifier? Parse(Source source, ref int index)
       {
@@ -1176,6 +1650,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FieldSpecifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1185,10 +1660,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FileType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FileType? Parse(Source source, ref int index)
       {
@@ -1200,6 +1682,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FileType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1209,10 +1692,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FileVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FileVariable? Parse(Source source, ref int index)
       {
@@ -1224,6 +1714,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FileVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1233,10 +1724,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FinalValue; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FinalValue? Parse(Source source, ref int index)
       {
@@ -1248,6 +1746,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FinalValue() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1257,10 +1756,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FixedPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FixedPart? Parse(Source source, ref int index)
       {
@@ -1272,6 +1778,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FixedPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1281,10 +1788,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ForStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ForStatement? Parse(Source source, ref int index)
       {
@@ -1296,6 +1810,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ForStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1305,10 +1820,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FormalParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FormalParameterList? Parse(Source source, ref int index)
       {
@@ -1320,6 +1842,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FormalParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1329,10 +1852,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FormalParameterSection; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FormalParameterSection? Parse(Source source, ref int index)
       {
@@ -1344,6 +1874,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FormalParameterSection() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1353,10 +1884,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FractionalPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FractionalPart? Parse(Source source, ref int index)
       {
@@ -1368,6 +1906,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FractionalPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1377,10 +1916,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionBlock; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionBlock? Parse(Source source, ref int index)
       {
@@ -1392,6 +1938,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionBlock() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1401,10 +1948,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionDeclaration; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionDeclaration? Parse(Source source, ref int index)
       {
@@ -1416,6 +1970,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionDeclaration() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1425,10 +1980,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionDesignator; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionDesignator? Parse(Source source, ref int index)
       {
@@ -1440,6 +2002,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionDesignator() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1449,10 +2012,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionHeading; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionHeading? Parse(Source source, ref int index)
       {
@@ -1464,6 +2034,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionHeading() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1473,10 +2044,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionIdentification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionIdentification? Parse(Source source, ref int index)
       {
@@ -1488,6 +2066,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionIdentification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1497,10 +2076,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionIdentifier? Parse(Source source, ref int index)
       {
@@ -1512,6 +2098,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1521,10 +2108,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.FunctionalParameterSpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static FunctionalParameterSpecification? Parse(Source source, ref int index)
       {
@@ -1536,6 +2130,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new FunctionalParameterSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1545,10 +2140,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.GotoStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static GotoStatement? Parse(Source source, ref int index)
       {
@@ -1560,6 +2162,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new GotoStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1569,10 +2172,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IdentifiedVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IdentifiedVariable? Parse(Source source, ref int index)
       {
@@ -1584,6 +2194,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IdentifiedVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1593,10 +2204,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Identifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Identifier? Parse(Source source, ref int index)
       {
@@ -1608,6 +2226,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Identifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1617,10 +2236,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IdentifierList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IdentifierList? Parse(Source source, ref int index)
       {
@@ -1632,6 +2258,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IdentifierList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1641,10 +2268,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IfStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IfStatement? Parse(Source source, ref int index)
       {
@@ -1656,6 +2290,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IfStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1665,10 +2300,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IndexExpression; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IndexExpression? Parse(Source source, ref int index)
       {
@@ -1680,6 +2322,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IndexExpression() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1689,10 +2332,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IndexType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IndexType? Parse(Source source, ref int index)
       {
@@ -1704,6 +2354,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IndexType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1713,10 +2364,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IndexTypeSpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IndexTypeSpecification? Parse(Source source, ref int index)
       {
@@ -1728,6 +2386,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IndexTypeSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1737,10 +2396,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.IndexedVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static IndexedVariable? Parse(Source source, ref int index)
       {
@@ -1752,6 +2418,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new IndexedVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1761,10 +2428,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.InitialValue; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static InitialValue? Parse(Source source, ref int index)
       {
@@ -1776,6 +2450,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new InitialValue() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1785,10 +2460,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Label; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Label? Parse(Source source, ref int index)
       {
@@ -1800,6 +2482,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Label() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1807,60 +2490,167 @@ namespace PascalCompiler.Parser
 
    public class LabelDeclarationPart : ASTNode
    {
-      //content fields (tokens & nodes) go here.
+      //items to complete a derived ASTNode:
+      //Add all relevant ASTNode/Lexer Token data members
+      //Write the ToString() function
+      //In parser: need to assign data members & "FileLocation" & "MySource" & "NodeLength
+      public Token? LabelToken { get; private set; } = null;
+      public Label? Label { get; private set; } = null;
+      public IReadOnlyList<(Token commaToken, Label label)>? SecondaryLabels { get; private set; } = null;
+      public Token? SemicolonToken { get; private set; } = null;
       public override ASTNodeType NodeType { get => ASTNodeType.LabelDeclarationPart; }
-      public override string ToString()
+
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (LabelToken != null)
+         { //no data members are null
+            if (prettyPrint)
+               return $"{new string('\t', indentLevel)}({NodeType}{Environment.NewLine}" +
+                      $"{new string('\t', indentLevel + 1)}{LabelToken!}{Environment.NewLine}" +
+                      $"{new string('\t', indentLevel + 1)}{Label!}{Environment.NewLine}" +
+                      $"{SecondaryLabels!.Select(x =>
+                      $"{new string('\t', indentLevel + 1)}{x.commaToken}{Environment.NewLine}" +
+                      $"{new string('\t', indentLevel + 1)}{x.label}{Environment.NewLine}").Aggregate((a, b) => a + b)}" +
+                      $"{new string('\t', indentLevel + 1)}{SemicolonToken!}{Environment.NewLine}" +
+                      $"{new string('\t', indentLevel)})";
+            else
+               return $"({NodeType} {LabelToken!} {Label!} {SecondaryLabels!.Select(x => $"{x.commaToken} {x.label}").Aggregate((a, b) => a + b)} {SemicolonToken!})";
+         }
+         else //all data members are null
+            return $"({NodeType})";
       }
+      protected override void AssertCorrectStructure()
+      {
+         int totalNonNull = 0;
+         totalNonNull += LabelToken != null ? 1 : 0;
+         totalNonNull += Label != null ? 1 : 0;
+         totalNonNull += SecondaryLabels != null ? 1 : 0;
+         totalNonNull += SemicolonToken != null ? 1 : 0;
+         //should be exactly one non-null
+         if (totalNonNull != 0 && totalNonNull != 4)
+         {
+            throw new InvalidOperationException($"Compiler parse error in {GetType().Name} (compiler bug): invalid object state.");
+         }
+      }
+      //This particular parse function contains most of the patterns used. Reference it as an example
       public new static LabelDeclarationPart? Parse(Source source, ref int index)
       {
-         int tind = index;
-         LabelDeclarationPart? node = null;
+         //first of all, here is how the spec defines this item (see 6.2.1):
+         //label-declaration-part = [ 'label' label { ',' label } ';' ] .
+         //note that the contents of label-declaration-part are all encapsulated in [] (0 or 1 of), which means
+         //in this case, if parsing fails, you should still successfully create an effectively empty label-declaration-part.
+         //my probably correct interpretation of the definition says that a label-declaration-part is comprised of:
+         //0 or 1: (label-word-symbol "label" 0 or more: (comma-special-symbol "label") semicolon-special-symbol)
+         //where "label" refers to an actual label value 0-9999 (see section 6.1.6)
+         //sometimes there are *functionally* identical interpretation of the spec in terms of executing the grammar.
+         //I try to stick to the spec for clairity.
 
-         //body
-
-         //if (fullyValid)
-         node = new LabelDeclarationPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
-
+         //prelude (most parse functions should have this)
+         int tind = index, lengthAggr = 0;
+         LabelDeclarationPart? node = null; //matches return type/containing class type
+         //grab all contiguous simple tokens
+         Token firstLabelWordSymbolTok = PopToken(source, ref tind); lengthAggr += firstLabelWordSymbolTok.TokenLength;
+         //if the next item is an ASTNode, then verify your tokens collected so far
+         if (firstLabelWordSymbolTok.Type == TokenType.Label)
+         {
+            //one by one, parse and verify your required ASTNodes, then descend one nested if deeper
+            Label? firstLabelValue = Label.Parse(source, ref tind); lengthAggr += firstLabelValue?.NodeLength ?? 0;
+            if (firstLabelValue != null)
+            {
+               List<(Token comma, Label labelValue)> secondaryLabels = new();
+               {
+                  while (true) //we require both a comma and and a label
+                  {
+                     int pretind = tind;
+                     Token tempComma = PopToken(source, ref tind);
+                     Label? tempLabelValue = Label.Parse(source, ref tind);
+                     if (tempComma.Type == TokenType.Comma && tempLabelValue != null)
+                     { //both exist (add to collection and continue)
+                        lengthAggr += tempComma.TokenLength;
+                        lengthAggr += tempLabelValue.NodeLength;
+                        secondaryLabels.Add((tempComma, tempLabelValue));
+                     }
+                     else //in any other situation
+                     {
+                        tind = pretind;
+                        break;
+                     }
+                  }
+               }
+               //secondaryLabels are already verified.
+               Token closingSemicolon = PopToken(source, ref tind); lengthAggr += closingSemicolon.TokenLength;
+               if (closingSemicolon.Type == TokenType.Semicolon)
+               {
+                  //we've met all the requirements for this AST node as per the 6.2.1 definition of label-declaration-part, so create the node
+                  node = new LabelDeclarationPart()
+                  { //at this point in execution, the following must be true
+                     MySource = source,
+                     FileLocation = firstLabelWordSymbolTok.FileLocation,
+                     //NodeLength = lengthAggr, //the sum of all the tokens & nodes that comprise the body of this
+                     LabelToken = firstLabelWordSymbolTok, //Type == TokenType.Label
+                     Label = firstLabelValue, //!= null (therefore valid)
+                     SecondaryLabels = secondaryLabels, //may be empty, but not null (valid)
+                     SemicolonToken = closingSemicolon //Type == TokenType.Semicolon
+                  }; //i.e., none are null
+               }
+            }
+         }
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
+         if (node == null) //if we failed to create the node, we should still successfully create an effectively empty label-declaration-part.
+         { //keep in mind that the above line will revert changes to the index; an effectively empty lable-declaration-part retroactively consumed no tokens.
+            //all the contents will be null by default, since this AST node comprises nothing.
+            node = new LabelDeclarationPart()
+            {
+               MySource = source,
+               FileLocation = firstLabelWordSymbolTok.FileLocation, //even if this token isn't a "label", this node's location still lies here.
+               NodeLength = 0,
+            };
+         }
          return node;
       }
    }
 
-   public class Letter : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.Letter; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static Letter? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         Letter? node = null;
+   //unneeded
+   //public class Letter : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.Letter; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static Letter? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      Letter? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new Letter() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new Letter() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      node?.AssertCorrectStructure();
+   //      return node;
+   //   }
+   //}
 
    public class MemberDesignator : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.MemberDesignator; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static MemberDesignator? Parse(Source source, ref int index)
       {
@@ -1872,6 +2662,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new MemberDesignator() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1881,10 +2672,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.MultiplyingOperator; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static MultiplyingOperator? Parse(Source source, ref int index)
       {
@@ -1896,6 +2694,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new MultiplyingOperator() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1905,10 +2704,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.NewOrdinalType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static NewOrdinalType? Parse(Source source, ref int index)
       {
@@ -1920,6 +2726,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new NewOrdinalType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1929,10 +2736,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.NewPointerType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static NewPointerType? Parse(Source source, ref int index)
       {
@@ -1944,6 +2758,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new NewPointerType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1953,10 +2768,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.NewStructuredType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static NewStructuredType? Parse(Source source, ref int index)
       {
@@ -1968,6 +2790,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new NewStructuredType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -1977,10 +2800,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.NewType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static NewType? Parse(Source source, ref int index)
       {
@@ -1992,6 +2822,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new NewType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2001,10 +2832,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.OrdinalType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static OrdinalType? Parse(Source source, ref int index)
       {
@@ -2016,6 +2854,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new OrdinalType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2025,10 +2864,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.OrdinalTypeIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static OrdinalTypeIdentifier? Parse(Source source, ref int index)
       {
@@ -2040,6 +2886,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new OrdinalTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2049,10 +2896,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.PackedConformantArraySchema; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static PackedConformantArraySchema? Parse(Source source, ref int index)
       {
@@ -2064,6 +2918,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new PackedConformantArraySchema() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2073,10 +2928,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.PointerType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static PointerType? Parse(Source source, ref int index)
       {
@@ -2088,6 +2950,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new PointerType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2097,10 +2960,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.PointerTypeIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static PointerTypeIdentifier? Parse(Source source, ref int index)
       {
@@ -2112,6 +2982,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new PointerTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2121,10 +2992,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.PointerVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static PointerVariable? Parse(Source source, ref int index)
       {
@@ -2136,6 +3014,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new PointerVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2145,10 +3024,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProceduralParameterSpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProceduralParameterSpecification? Parse(Source source, ref int index)
       {
@@ -2160,6 +3046,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProceduralParameterSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2169,10 +3056,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureAndFunctionDeclarationPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureAndFunctionDeclarationPart? Parse(Source source, ref int index)
       {
@@ -2184,6 +3078,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureAndFunctionDeclarationPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2193,10 +3088,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureBlock; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureBlock? Parse(Source source, ref int index)
       {
@@ -2208,6 +3110,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureBlock() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2217,10 +3120,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureDeclaration; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureDeclaration? Parse(Source source, ref int index)
       {
@@ -2232,6 +3142,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureDeclaration() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2241,10 +3152,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureHeading; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureHeading? Parse(Source source, ref int index)
       {
@@ -2256,6 +3174,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureHeading() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2265,10 +3184,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureIdentification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureIdentification? Parse(Source source, ref int index)
       {
@@ -2280,6 +3206,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureIdentification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2289,10 +3216,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureIdentifier? Parse(Source source, ref int index)
       {
@@ -2304,6 +3238,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2313,10 +3248,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProcedureStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProcedureStatement? Parse(Source source, ref int index)
       {
@@ -2328,6 +3270,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProcedureStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2337,10 +3280,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Program; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Program? Parse(Source source, ref int index)
       {
@@ -2352,6 +3302,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Program() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2361,10 +3312,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProgramBlock; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProgramBlock? Parse(Source source, ref int index)
       {
@@ -2376,6 +3334,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProgramBlock() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2385,10 +3344,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProgramHeading; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProgramHeading? Parse(Source source, ref int index)
       {
@@ -2400,6 +3366,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProgramHeading() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2409,10 +3376,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ProgramParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ProgramParameterList? Parse(Source source, ref int index)
       {
@@ -2424,6 +3398,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ProgramParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2433,10 +3408,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ReadParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ReadParameterList? Parse(Source source, ref int index)
       {
@@ -2448,6 +3430,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ReadParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2457,10 +3440,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ReadlnParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ReadlnParameterList? Parse(Source source, ref int index)
       {
@@ -2472,6 +3462,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ReadlnParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2481,10 +3472,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RealTypeIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RealTypeIdentifier? Parse(Source source, ref int index)
       {
@@ -2496,6 +3494,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RealTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2505,10 +3504,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RecordSection; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RecordSection? Parse(Source source, ref int index)
       {
@@ -2520,6 +3526,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RecordSection() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2529,10 +3536,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RecordType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RecordType? Parse(Source source, ref int index)
       {
@@ -2544,6 +3558,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RecordType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2553,10 +3568,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RecordVariable; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RecordVariable? Parse(Source source, ref int index)
       {
@@ -2568,6 +3590,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RecordVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2577,10 +3600,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RecordVariableList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RecordVariableList? Parse(Source source, ref int index)
       {
@@ -2592,6 +3622,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RecordVariableList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2601,10 +3632,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RelationalOperator; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RelationalOperator? Parse(Source source, ref int index)
       {
@@ -2616,6 +3654,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RelationalOperator() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2625,10 +3664,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RepeatStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RepeatStatement? Parse(Source source, ref int index)
       {
@@ -2640,6 +3686,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RepeatStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2649,10 +3696,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.RepetitiveStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static RepetitiveStatement? Parse(Source source, ref int index)
       {
@@ -2664,6 +3718,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new RepetitiveStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2673,10 +3728,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ResultType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ResultType? Parse(Source source, ref int index)
       {
@@ -2688,6 +3750,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ResultType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2697,10 +3760,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ScaleFactor; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ScaleFactor? Parse(Source source, ref int index)
       {
@@ -2712,6 +3782,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ScaleFactor() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2721,10 +3792,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SetConstructor; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SetConstructor? Parse(Source source, ref int index)
       {
@@ -2736,6 +3814,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SetConstructor() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2745,10 +3824,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SetType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SetType? Parse(Source source, ref int index)
       {
@@ -2760,6 +3846,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SetType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2769,10 +3856,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Sign; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Sign? Parse(Source source, ref int index)
       {
@@ -2784,6 +3878,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Sign() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2793,10 +3888,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SignedInteger; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SignedInteger? Parse(Source source, ref int index)
       {
@@ -2808,6 +3910,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SignedInteger() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2817,10 +3920,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SignedNumber; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SignedNumber? Parse(Source source, ref int index)
       {
@@ -2832,6 +3942,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SignedNumber() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2841,10 +3952,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SignedReal; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SignedReal? Parse(Source source, ref int index)
       {
@@ -2856,6 +3974,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SignedReal() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2865,10 +3984,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SimpleExpression; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SimpleExpression? Parse(Source source, ref int index)
       {
@@ -2880,6 +4006,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SimpleExpression() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2889,10 +4016,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SimpleStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SimpleStatement? Parse(Source source, ref int index)
       {
@@ -2904,6 +4038,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SimpleStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2913,10 +4048,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SimpleType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SimpleType? Parse(Source source, ref int index)
       {
@@ -2928,6 +4070,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SimpleType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -2937,10 +4080,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SimpleTypeIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SimpleTypeIdentifier? Parse(Source source, ref int index)
       {
@@ -2952,43 +4102,52 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SimpleTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
    }
 
-   public class SpecialSymbol : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.SpecialSymbol; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static SpecialSymbol? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         SpecialSymbol? node = null;
+   //unneeded
+   //public class SpecialSymbol : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.SpecialSymbol; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static SpecialSymbol? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      SpecialSymbol? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new SpecialSymbol() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new SpecialSymbol() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      node?.AssertCorrectStructure();
+   //      return node;
+   //   }
+   //}
 
    public class Statement : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Statement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Statement? Parse(Source source, ref int index)
       {
@@ -3000,6 +4159,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Statement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3009,10 +4169,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.StatementPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static StatementPart? Parse(Source source, ref int index)
       {
@@ -3024,6 +4191,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new StatementPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3033,10 +4201,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.StatementSequence; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static StatementSequence? Parse(Source source, ref int index)
       {
@@ -3048,67 +4223,77 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new StatementSequence() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
    }
 
-   public class StringCharacter : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.StringCharacter; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static StringCharacter? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         StringCharacter? node = null;
+   //unneeded
+   //public class StringCharacter : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.StringCharacter; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static StringCharacter? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      StringCharacter? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new StringCharacter() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new StringCharacter() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      node?.AssertCorrectStructure();
+   //      return node;
+   //   }
+   //}
 
-   public class StringElement : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.StringElement; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static StringElement? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         StringElement? node = null;
+   //unneeded
+   //public class StringElement : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.StringElement; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static StringElement? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      StringElement? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new StringElement() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new StringElement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      node?.AssertCorrectStructure();
+   //      return node;
+   //   }
+   //}
 
    public class StructuredStatement : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.StructuredStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static StructuredStatement? Parse(Source source, ref int index)
       {
@@ -3120,6 +4305,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new StructuredStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3129,10 +4315,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.StructuredType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static StructuredType? Parse(Source source, ref int index)
       {
@@ -3144,6 +4337,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new StructuredType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3153,10 +4347,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.StructuredTypeIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static StructuredTypeIdentifier? Parse(Source source, ref int index)
       {
@@ -3168,6 +4369,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new StructuredTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3177,10 +4379,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.SubrangeType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static SubrangeType? Parse(Source source, ref int index)
       {
@@ -3192,6 +4401,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new SubrangeType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3201,10 +4411,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.TagField; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static TagField? Parse(Source source, ref int index)
       {
@@ -3216,6 +4433,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new TagField() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3225,10 +4443,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.TagType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static TagType? Parse(Source source, ref int index)
       {
@@ -3240,6 +4465,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new TagType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3249,10 +4475,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Term; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Term? Parse(Source source, ref int index)
       {
@@ -3264,6 +4497,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Term() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3273,10 +4507,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.TypeDefinition; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static TypeDefinition? Parse(Source source, ref int index)
       {
@@ -3288,6 +4529,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new TypeDefinition() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3297,10 +4539,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.TypeDefinitionPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static TypeDefinitionPart? Parse(Source source, ref int index)
       {
@@ -3312,6 +4561,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new TypeDefinitionPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3321,10 +4571,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.TypeDenoter; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static TypeDenoter? Parse(Source source, ref int index)
       {
@@ -3336,6 +4593,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new TypeDenoter() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3345,10 +4603,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.TypeIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static TypeIdentifier? Parse(Source source, ref int index)
       {
@@ -3360,6 +4625,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new TypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3369,10 +4635,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.UnpackedConformantArraySchema; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static UnpackedConformantArraySchema? Parse(Source source, ref int index)
       {
@@ -3384,6 +4657,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new UnpackedConformantArraySchema() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3393,10 +4667,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.UnpackedStructuredType; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static UnpackedStructuredType? Parse(Source source, ref int index)
       {
@@ -3408,6 +4689,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new UnpackedStructuredType() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3417,10 +4699,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.UnsignedConstant; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static UnsignedConstant? Parse(Source source, ref int index)
       {
@@ -3432,6 +4721,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new UnsignedConstant() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3441,10 +4731,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.UnsignedInteger; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static UnsignedInteger? Parse(Source source, ref int index)
       {
@@ -3456,6 +4753,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new UnsignedInteger() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3465,10 +4763,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.UnsignedNumber; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static UnsignedNumber? Parse(Source source, ref int index)
       {
@@ -3480,6 +4785,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new UnsignedNumber() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3489,10 +4795,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.UnsignedReal; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static UnsignedReal? Parse(Source source, ref int index)
       {
@@ -3504,6 +4817,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new UnsignedReal() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3513,10 +4827,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ValueConformantArraySpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ValueConformantArraySpecification? Parse(Source source, ref int index)
       {
@@ -3528,6 +4849,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ValueConformantArraySpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3537,10 +4859,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.ValueParameterSpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static ValueParameterSpecification? Parse(Source source, ref int index)
       {
@@ -3552,6 +4881,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new ValueParameterSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3561,10 +4891,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariableAccess; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariableAccess? Parse(Source source, ref int index)
       {
@@ -3576,6 +4913,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariableAccess() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3585,10 +4923,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariableConformantArraySpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariableConformantArraySpecification? Parse(Source source, ref int index)
       {
@@ -3600,6 +4945,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariableConformantArraySpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3609,10 +4955,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariableDeclaration; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariableDeclaration? Parse(Source source, ref int index)
       {
@@ -3624,6 +4977,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariableDeclaration() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3633,10 +4987,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariableDeclarationPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariableDeclarationPart? Parse(Source source, ref int index)
       {
@@ -3648,6 +5009,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariableDeclarationPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3657,10 +5019,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariableIdentifier; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariableIdentifier? Parse(Source source, ref int index)
       {
@@ -3672,6 +5041,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariableIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3681,10 +5051,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariableParameterSpecification; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariableParameterSpecification? Parse(Source source, ref int index)
       {
@@ -3696,6 +5073,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariableParameterSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3705,10 +5083,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.Variant; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static Variant? Parse(Source source, ref int index)
       {
@@ -3720,6 +5105,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new Variant() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3729,10 +5115,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariantPart; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariantPart? Parse(Source source, ref int index)
       {
@@ -3744,6 +5137,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariantPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3753,10 +5147,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.VariantSelector; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static VariantSelector? Parse(Source source, ref int index)
       {
@@ -3768,6 +5169,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new VariantSelector() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3777,10 +5179,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.WhileStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static WhileStatement? Parse(Source source, ref int index)
       {
@@ -3792,6 +5201,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new WhileStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3801,10 +5211,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.WithStatement; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static WithStatement? Parse(Source source, ref int index)
       {
@@ -3816,43 +5233,52 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new WithStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
    }
 
-   public class WordSymbol : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.WordSymbol; }
-      public override string ToString()
-      {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
-         //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
-      }
-      public new static WordSymbol? Parse(Source source, ref int index)
-      {
-         int tind = index;
-         WordSymbol? node = null;
+   //unneeded
+   //public class WordSymbol : ASTNode
+   //{
+   //   //content fields (tokens & nodes) go here.
+   //   public override ASTNodeType NodeType { get => ASTNodeType.WordSymbol; }
+   //   public override string ToString()
+   //   {
+   //      return $"{GetType().Name}.ToString(): Not yet implemented";
+   //      //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+   //   }
+   //   public new static WordSymbol? Parse(Source source, ref int index)
+   //   {
+   //      int tind = index;
+   //      WordSymbol? node = null;
 
-         //body
+   //      //body
 
-         //if (fullyValid)
-         node = new WordSymbol() { MySource = source, FileLocation = -69, NodeLength = 420 };
+   //      //if (fullyValid)
+   //      node = new WordSymbol() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
-         index = node == null ? index : tind;
-         return node;
-      }
-   }
+   //      node?.AssertCorrectStructure();
+   //      return node;
+   //   }
+   //}
 
    public class WriteParameter : ASTNode
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.WriteParameter; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static WriteParameter? Parse(Source source, ref int index)
       {
@@ -3864,6 +5290,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new WriteParameter() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3873,10 +5300,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.WriteParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static WriteParameterList? Parse(Source source, ref int index)
       {
@@ -3888,6 +5322,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new WriteParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -3897,10 +5332,17 @@ namespace PascalCompiler.Parser
    {
       //content fields (tokens & nodes) go here.
       public override ASTNodeType NodeType { get => ASTNodeType.WritelnParameterList; }
-      public override string ToString()
+      public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         return $"{GetType().Name}.ToString(): Not yet implemented";
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
+         if (prettyPrint)
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+         else
+            return $"{GetType().Name}.ToString(): Not yet implemented";
+      }
+      protected override void AssertCorrectStructure()
+      {
+
       }
       public new static WritelnParameterList? Parse(Source source, ref int index)
       {
@@ -3912,6 +5354,7 @@ namespace PascalCompiler.Parser
          //if (fullyValid)
          node = new WritelnParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
 
+         node?.AssertCorrectStructure();
          index = node == null ? index : tind;
          return node;
       }
@@ -4350,15 +5793,28 @@ namespace PascalCompiler.Parser
    {
       public static void Parse(Source source)
       {
+         //i'm 80% sure that since "Program" is the start symbol, and the program ?must? be terminated by the last "end ." in the file, that
+         //any file parsed will result in one mega ASTNode, not a list?
          int ind = 0;
+         bool firstIter = true;
          while (ind < source.LexerTokens.Count/* && source.LexerTokens[ind].Type != TokenType.END_OF_FILE*/)
          {
             ASTNode? node = ASTNode.Parse(source, ref ind);
             if (node == null/* || node.NodeType == ASTNodeType.UNDEFINED*/)
             {
                source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "No valid candidates for parsing token", source.LexerTokens[ind].FileLocation, true));
-               throw new Exception(); //todo: put a message in this
+               throw new Exception(); //todo: put a message in this??
             }
+            if (firstIter)
+            {
+               firstIter = false;
+               if (node.NodeType != ASTNodeType.Program)
+               {
+                  source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "The first AST Node parsed was not the 'Program' node!", node.FileLocation, true));
+                  throw new Exception(); //todo: put a message in this??
+               }
+            }
+
             source.AddParserNode(node);
          }
          source.ParsingComplete();

@@ -27,3 +27,25 @@
 	- Prefix ASTNode data members with _0 _1 _2 _3 ... etc in the order that those data fields represent the parsed data?
 
 It seems that this grammar has some ambiguous situations. E.g., a simple character-string can be parsed either as a constant or an unsigned-constant. What to do?
+
+* Add the ability for the user to "highlight" the parse tree, i.e., they can select a node to "highlight" and the associated source code gets highlighed:
+should look something like this:
+
+Node being examined: Node.ToString(0, true)
+4  {these are} //regular coloring (white on black)
+     -----v
+5  {lines of} //this line has its color inverted (black on white)
+6  {source code} //this line has its color inverted (black on white)
+7-21 ... (omitted)
+22 {these are} //this line has its color inverted (black on white)
+23 {lines of} //this line has its color inverted (black on white)
+\-----^
+24 {source code} //regular coloring (white on black)
+
+Similar to the above, do this for the lex list?
+
+Maybe like the "split" layout in GDB?
+
+change the flag system so that no dashes are non flags;
+one dash are single-character flags (i.e., -a -b is the same as -ab)
+two dash are word flags (i.e., --help doesn't get split up)
