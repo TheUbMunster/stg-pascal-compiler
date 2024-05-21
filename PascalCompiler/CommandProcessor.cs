@@ -156,7 +156,35 @@ namespace PascalCompiler
          //=======
          // PARSE
          //=======
-
+         Parallel.For(0, sources.Count, (i) =>
+         {
+            Parser.Parser.Parse(sources[i]);
+         });
+         foreach (Source s in sources)
+         {
+            foreach (Source.Message m in s.Messages)
+            {
+               PrintMessage(s, m);
+            }
+            s.ClearMessages();
+         }
+         if (sources.Any(s => s.ErrorHasOccurred))
+         {
+            Console.Error.WriteLine("Compilation failed at the Lexer stage.");
+            return -1;
+         }
+         if (flags.Contains("p"))
+         {
+            foreach (Source s in sources)
+            {
+               Console.WriteLine(string.Join("\n", s.LexerTokens));
+            }
+            Console.WriteLine("Compilation succeeded: parsing complete");
+            return 0;
+         }
+         //===========
+         // TYPECHECK
+         //===========
 
          throw new NotImplementedException(); //at the very end
       }
