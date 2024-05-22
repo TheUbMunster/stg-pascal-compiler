@@ -70,92 +70,37 @@ namespace PascalCompiler.Parser
          TokenType.WHITESPACE,
          TokenType.LINEBREAK
       };
+      public static readonly ASTNode UndefinedNode = new ASTNode() { nodeType = ASTNodeType.UNDEFINED };
       protected ASTNode() { }
       protected Source MySource { get; init; } = null!;
-      public virtual ASTNodeType NodeType { get; private init; }
-      //todo: automate this with the custom data attribute thing described for
-      //nodelength
-      public int FileLocation { get; set; } = -1; //instead of assigning the backup value sometimes and not others, just assign this manually all the time so we don't get confused.
-      //todo: automate this via making a custom attribute to put on the data members,
-      //then have this grab all the non-null data members and aggregate their length.
-      //(you'll need to add a data member that holds all the skippables).
-      public int NodeLength { get; protected set; } = -1;
-      //public int NodeLength 
-      //{
-      //   get
-      //   {
-      //      return GetType().GetProperties()
-      //         .Where(prop => prop.GetCustomAttribute<ParserDataAttribute>(false) != null)
-      //         .OrderBy(x => x.GetCustomAttribute<ParserDataAttribute>(false)!.PropertyOrder)
-      //         .Select<PropertyInfo, int>(prop =>
-      //         {
-      //            switch (prop.GetValue(this))
-      //            {
-      //               case ASTNode node:
-      //                  return node.NodeLength;
-      //               case Token tok:
-      //                  return tok.TokenLength;
-      //               case IReadOnlyList<object> list: 
-      //                  Type listElemType = list.GetType().GetGenericArguments().Single();
-      //                  if (listElemType.GetCustomAttribute(typeof(ParserDataContainerAttribute), false) != null)
-      //                  {  //list of structs that are ParserDataContainerAttribute
-      //                     int aggr = 0;
-      //                     foreach (object e in list)
-      //                     {
-      //                        aggr += e.GetType().GetProperties().Select(dataProp =>
-      //                        {
-      //                           switch (dataProp.GetValue(this))
-      //                           {
-      //                              case ASTNode node:
-      //                                 return node.NodeLength;
-      //                              case Token tok:
-      //                                 return tok.TokenLength;
-      //                              default:
-      //                                 throw new Exception(); //todo add message?
-      //                           }
-      //                        }).Aggregate((x, y) => x + y);
-      //                     }
-      //                     return aggr;
-      //                  }
-      //                  else if (listElemType.IsAssignableTo(typeof(ASTNode)))
-      //                  {  //list of parser data (i.e., a list of ASTNode)
-      //                     int aggr = 0;
-      //                     foreach (ASTNode n in list.Cast<ASTNode>())
-      //                     {
-      //                        aggr += n.NodeLength;
-      //                     }
-      //                     return aggr;
-      //                  }
-      //                  else if (listElemType.IsAssignableTo(typeof(Token)))
-      //                  {  //list of parser data (i.e., a list of Token)
-      //                     int aggr = 0;
-      //                     foreach (Token n in list.Cast<Token>())
-      //                     {
-      //                        aggr += n.TokenLength;
-      //                     }
-      //                     return aggr;
-      //                  }
-      //                  else
-      //                     throw new Exception(); //todo add message?
-      //               default:
-      //                  throw new Exception(); //todo add message?
-      //            }
-      //         }).Aggregate((x, y) => x + y);
-      //   } 
-      //}
-      public string Content { get; protected set; } = "Content of this AST node was not set via the Parser.";
+      private ASTNodeType? nodeType = null!;
+      public ASTNodeType NodeType 
+      {
+         get
+         {
+            if (nodeType == null)
+            {
+               if (Enum.TryParse<ASTNodeType>(GetType().Name, out ASTNodeType n))
+                  nodeType = n;
+               else
+                  throw new Exception($"Could not retrieve the ASTNodeType for object of type {GetType().Name}");
+            }
+            return nodeType.Value;
+         }
+      }
+      public int FileLocation { get; set; } = -1;
+      public int NodeLength { get => FlattenedView().Select(x => x.TokenLength).Sum(); }
+      public string Content { get => FlattenedView().Select(x => x.Content).Aggregate((x, y) => x + y); }
 
+      #region Parse
       public static ASTNode? Parse(Source source, ref int index)
       {
          ASTNode? result = null;
-         result ??= Program.Parse(source, ref index);
-         //list of:
-         //result ??= [ASTNodeCategory].Parse(tokens, ref index);
-         //where [ASTNodeCategory] is a type that one or more terminals derive from.
+         result ??= Program.Parse(source, ref index); //there are a couple of non-recipie non-terminals, but this is the beginning node for the grammar.
          return result;
       }
 
-      protected static Token PopToken(Source source, ref int index, bool firstNonskippableToken = true)
+      protected static TokenNode PopToken(Source source, ref int index)
       {
          //todo: change this so that it returns a list of tokens, containing at least one token, where the last (and possibly only)
          //token in the list is a non-skippable token, and all the others are the skippable tokens before it.
@@ -164,11 +109,12 @@ namespace PascalCompiler.Parser
          //potentially return the non-skippable via an out parameter, and make the return value the list of skippables?
          //(or vice versa, i.e., return the skippable ones via an out parameter and return the non-skippable)?
          var tokens = source.LexerTokens;
-         Token? tok = Token.UndefinedToken;
+         Token tok = Token.UndefinedToken;
+         List<Token> skippableTokens = new List<Token>();
          for (; index < tokens.Count; index++)
          {
             if (skippableTokenTypes.Contains(tokens[index].Type))
-               continue;
+               skippableTokens.Add(tokens[index]);
             else
             {
                tok = tokens[index];
@@ -176,46 +122,7 @@ namespace PascalCompiler.Parser
             }
          }
          index++; //fix off-by-one
-         return tok!;
-      }
-
-      //this doesn't work because Consume would need a way to generally consume a thing and assign it to a member, but do we assign it
-      //to the first member, or the second, or the third? What if one of the members is a list of things? How do we know if we need to 
-      //add it to the list or assign it to the member(s) after the list?
-      //suffers from the same problem as flattened data.
-      //protected bool Consume(TokenType tokenType)
-      //{
-      //   throw new NotImplementedException();
-      //}
-
-      //protected bool Consume(ASTNodeType nodeType)
-      //{
-      //   throw new NotImplementedException();
-      //}
-
-      //this concept is useful, but can't work this way because the Consume() methods don't work.
-      //implement this concept in straight code that goes inside each parse function.
-      //protected void BeginUnifiedConsumableBlock()
-      //{
-      //   //if this method is called, all subsequent calls to Consume()
-      //   //must pass. If any of them fail, then they all fail and none are consumed.
-      //   //if all pass and then EndUnifiedConsumableBlock() is called, then all are consumed.
-      //}
-
-      //protected void EndUnifiedConsumableBlock()
-      //{
-
-      //}
-
-      public override sealed string ToString()
-      {
-         throw new Exception($"The regular object.ToString() method was called on an object of type {GetType().Name}, you probably should have used ToString(int, bool)");
-         //return ToString(0, false);
-      }
-
-      public virtual string ToString(int indentLevel = 0, bool prettyPrint = true)
-      {
-         return $"This ASTNode's ToString(int, bool) function was not overrided by it's deriver! Type: {GetType().Name}";
+         return new TokenNode(skippableTokens, tok);
       }
 
       /// <summary>
@@ -231,6 +138,27 @@ namespace PascalCompiler.Parser
          //and throws an exception.
          throw new NotImplementedException();
       }
+
+      protected internal virtual IEnumerable<Token> FlattenedView()
+      {
+         //iterates through this ast node's data members.
+         //if it is a token, yield it
+         //if it is an ASTNode, then yield node.FlattenedView()
+         throw new NotImplementedException();
+      }
+      #endregion
+
+      #region Object Overrides
+      public override sealed string ToString()
+      {
+         throw new Exception($"The regular object.ToString() method was called on an object of type {GetType().Name}, you probably should have used ToString(int, bool)");
+      }
+
+      public virtual string ToString(int indentLevel = 0, bool prettyPrint = true)
+      {
+         throw new Exception($"This ASTNode's ToString(int, bool) function was not overrided by it's deriver! Type: {GetType().Name}");
+      }
+      #endregion
    }
 
    public static class Parser
