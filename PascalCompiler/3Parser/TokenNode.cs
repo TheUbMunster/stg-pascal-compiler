@@ -24,6 +24,7 @@ namespace PascalCompiler.Parser
       public TokenType Type { get => Token.Type; }
       public int NodeLength { get => AllTokens.Select(x => x.TokenLength).Sum(); }
       public int FileLocation { get => AllTokens.First().FileLocation; } //the first one bc users need the very beginning, including skippables.
+      public bool ContainsSkippableToken { get => Count > 1; }
 
       public TokenNode(IReadOnlyList<Token> skippableTokens, Token actualToken)
       {
