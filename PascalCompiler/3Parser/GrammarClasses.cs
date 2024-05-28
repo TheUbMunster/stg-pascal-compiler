@@ -3951,8 +3951,9 @@ namespace PascalCompiler.Parser
 
       public class MemberDesignator : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.MemberDesignator; }
+      public Expression Expression { get; private init; } = null!;
+      public TokenNode? DoubleDotToken { get; private init; } = null;
+      public Expression? SecondExpression { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -3970,10 +3971,34 @@ namespace PascalCompiler.Parser
          int tind = index;
          MemberDesignator? node = null;
 
-         //body
+         Expression? expression = Expression.Parse(source, ref tind);
+         if (expression != null)
+         {
+            int pretind = tind;
+            TokenNode doubleDotToken = PopToken(source, ref tind);
+            if (doubleDotToken.Type == TokenType.DoubleDot)
+            {
+               Expression? secondExpression = Expression.Parse(source, ref tind);
+               if (secondExpression != null)
+               {
+                  node = new MemberDesignator() 
+                  {
+                     MySource = source, FileLocation = expression.FileLocation,
 
-         //if (fullyValid)
-         node = new MemberDesignator() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     Expression = expression,
+                     DoubleDotToken = doubleDotToken,
+                     SecondExpression = secondExpression
+                  };
+               }
+            }
+            tind = node == null ? pretind : tind;
+            node ??= new MemberDesignator()
+            {
+               MySource = source, FileLocation = expression.FileLocation,
+
+               Expression = expression
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -3983,8 +4008,11 @@ namespace PascalCompiler.Parser
 
       public class MultiplyingOperator : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.MultiplyingOperator; }
+      public TokenNode? AsteriskToken { get; private init; } = null;
+      public TokenNode? ForwardSlashToken { get; private init; } = null;
+      public TokenNode? DivToken { get; private init; } = null;
+      public TokenNode? ModToken { get; private init; } = null;
+      public TokenNode? AndToken { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4002,10 +4030,81 @@ namespace PascalCompiler.Parser
          int tind = index;
          MultiplyingOperator? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode asteriskToken = PopToken(source, ref tind);
+            if (asteriskToken.Type == TokenType.Asterisk)
+            {
+               node = new MultiplyingOperator()
+               {
+                  MySource = source, FileLocation = asteriskToken.FileLocation,
 
-         //if (fullyValid)
-         node = new MultiplyingOperator() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  AsteriskToken = asteriskToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode forwardSlashToken = PopToken(source, ref tind);
+            if (forwardSlashToken.Type == TokenType.ForwardSlash)
+            {
+               node = new MultiplyingOperator()
+               {
+                  MySource = source, FileLocation = forwardSlashToken.FileLocation,
+
+                  ForwardSlashToken = forwardSlashToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode divToken = PopToken(source, ref tind);
+            if (divToken.Type == TokenType.Div)
+            {
+               node = new MultiplyingOperator()
+               {
+                  MySource = source, FileLocation = divToken.FileLocation,
+
+                  DivToken = divToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode modToken = PopToken(source, ref tind);
+            if (modToken.Type == TokenType.Mod)
+            {
+               node = new MultiplyingOperator()
+               {
+                  MySource = source, FileLocation = modToken.FileLocation,
+
+                  ModToken = modToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode andToken = PopToken(source, ref tind);
+            if (andToken.Type == TokenType.And)
+            {
+               node = new MultiplyingOperator()
+               {
+                  MySource = source, FileLocation = andToken.FileLocation,
+
+                  AndToken = andToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4015,8 +4114,8 @@ namespace PascalCompiler.Parser
 
       public class NewOrdinalType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.NewOrdinalType; }
+      public EnumeratedType? EnumeratedType { get; private init; } = null;
+      public SubrangeType? SubrangeType { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4034,10 +4133,36 @@ namespace PascalCompiler.Parser
          int tind = index;
          NewOrdinalType? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            EnumeratedType? enumeratedType = EnumeratedType.Parse(source, ref tind);
+            if (enumeratedType != null)
+            {
+               node = new NewOrdinalType()
+               {
+                  MySource = source, FileLocation = enumeratedType.FileLocation,
 
-         //if (fullyValid)
-         node = new NewOrdinalType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  EnumeratedType = enumeratedType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            SubrangeType? subrangeType = SubrangeType.Parse(source, ref tind);
+            if (subrangeType != null)
+            {
+               node = new NewOrdinalType()
+               {
+                  MySource = source, FileLocation = subrangeType.FileLocation,
+
+                  SubrangeType = subrangeType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4047,8 +4172,8 @@ namespace PascalCompiler.Parser
 
       public class NewPointerType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.NewPointerType; }
+      public TokenNode UpArrowToken { get; private init; } = null!;
+      public DomainType DomainType { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4066,10 +4191,21 @@ namespace PascalCompiler.Parser
          int tind = index;
          NewPointerType? node = null;
 
-         //body
-
-         //if (fullyValid)
-         node = new NewPointerType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+         TokenNode upArrowToken = PopToken(source, ref tind);
+         if (upArrowToken.Type == TokenType.UpArrow)
+         {
+            DomainType? domainType = DomainType.Parse(source, ref tind);
+            if (domainType != null)
+            {
+               node = new NewPointerType() 
+               {
+                  MySource = source, FileLocation = upArrowToken.FileLocation,
+               
+                  UpArrowToken = upArrowToken,
+                  DomainType = domainType
+               };
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4078,9 +4214,9 @@ namespace PascalCompiler.Parser
    }
 
       public class NewStructuredType : ASTNode
-   {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.NewStructuredType; }
+   { //treated like: new-structured-type = 'packed' unpacked-structured-type | unpacked-structured-type .
+      public TokenNode? PackedToken { get; private init; } = null;
+      public UnpackedStructuredType UnpackedStructuredType { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4098,10 +4234,41 @@ namespace PascalCompiler.Parser
          int tind = index;
          NewStructuredType? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode packedToken = PopToken(source, ref tind);
+            if (packedToken.Type == TokenType.Packed)
+            {
+               UnpackedStructuredType? unpackedStructuredType = UnpackedStructuredType.Parse(source, ref tind);
+               if (unpackedStructuredType != null)
+               {
+                  node = new NewStructuredType()
+                  {
+                     MySource = source, FileLocation = packedToken.FileLocation,
 
-         //if (fullyValid)
-         node = new NewStructuredType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     PackedToken = packedToken,
+                     UnpackedStructuredType = unpackedStructuredType
+                  };
+               }
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            UnpackedStructuredType? unpackedStructuredType = UnpackedStructuredType.Parse(source, ref tind);
+            if (unpackedStructuredType != null)
+            {
+               node = new NewStructuredType()
+               {
+                  MySource = source, FileLocation = unpackedStructuredType.FileLocation,
+
+                  UnpackedStructuredType = unpackedStructuredType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4111,8 +4278,9 @@ namespace PascalCompiler.Parser
 
       public class NewType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.NewType; }
+      public NewOrdinalType? NewOrdinalType { get; private init; } = null;
+      public NewStructuredType? NewStructuredType { get; private init; } = null;
+      public NewPointerType? NewPointerType { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4130,10 +4298,51 @@ namespace PascalCompiler.Parser
          int tind = index;
          NewType? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            NewOrdinalType? newOrdinalType = NewOrdinalType.Parse(source, ref tind);
+            if (newOrdinalType != null)
+            {
+               node = new NewType()
+               {
+                  MySource = source, FileLocation = newOrdinalType.FileLocation,
 
-         //if (fullyValid)
-         node = new NewType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  NewOrdinalType = newOrdinalType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            NewStructuredType? newStructuredType = NewStructuredType.Parse(source, ref tind);
+            if (newStructuredType != null)
+            {
+               node = new NewType()
+               {
+                  MySource = source, FileLocation = newStructuredType.FileLocation,
+
+                  NewStructuredType = newStructuredType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            NewPointerType? newPointerType = NewPointerType.Parse(source, ref tind);
+            if (newPointerType != null)
+            {
+               node = new NewType()
+               {
+                  MySource = source, FileLocation = newPointerType.FileLocation,
+
+                  NewPointerType = newPointerType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4143,8 +4352,8 @@ namespace PascalCompiler.Parser
 
       public class OrdinalType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.OrdinalType; }
+      public NewOrdinalType? NewOrdinalType { get; private init; } = null;
+      public OrdinalTypeIdentifier? OrdinalTypeIdentifier { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4162,10 +4371,36 @@ namespace PascalCompiler.Parser
          int tind = index;
          OrdinalType? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            NewOrdinalType? newOrdinalType = NewOrdinalType.Parse(source, ref tind);
+            if (newOrdinalType != null)
+            {
+               node = new OrdinalType()
+               {
+                  MySource = source, FileLocation = newOrdinalType.FileLocation,
 
-         //if (fullyValid)
-         node = new OrdinalType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  NewOrdinalType = newOrdinalType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            OrdinalTypeIdentifier? ordinalTypeIdentifier = OrdinalTypeIdentifier.Parse(source, ref tind);
+            if (ordinalTypeIdentifier != null)
+            {
+               node = new OrdinalType()
+               {
+                  MySource = source, FileLocation = ordinalTypeIdentifier.FileLocation,
+
+                  OrdinalTypeIdentifier = ordinalTypeIdentifier
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4175,8 +4410,7 @@ namespace PascalCompiler.Parser
 
       public class OrdinalTypeIdentifier : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.OrdinalTypeIdentifier; }
+      public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4194,10 +4428,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          OrdinalTypeIdentifier? node = null;
 
-         //body
+         TypeIdentifier? typeIdentifier = TypeIdentifier.Parse(source, ref tind);
+         if (typeIdentifier != null)
+         {
+            node = new OrdinalTypeIdentifier() 
+            {
+               MySource = source, FileLocation = typeIdentifier.FileLocation,
 
-         //if (fullyValid)
-         node = new OrdinalTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               TypeIdentifier = typeIdentifier
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4207,8 +4447,13 @@ namespace PascalCompiler.Parser
 
       public class PackedConformantArraySchema : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.PackedConformantArraySchema; }
+      public TokenNode PackedToken { get; private init; } = null!;
+      public TokenNode ArrayToken { get; private init; } = null!;
+      public TokenNode LeftSquareBracketToken { get; private init; } = null!;
+      public IndexTypeSpecification IndexTypeSpecification { get; private init; } = null!;
+      public TokenNode RightSquareBracketToken { get; private init; } = null!;
+      public TokenNode OfToken { get; private init; } = null!;
+      public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4226,10 +4471,46 @@ namespace PascalCompiler.Parser
          int tind = index;
          PackedConformantArraySchema? node = null;
 
-         //body
+         TokenNode packedToken = PopToken(source, ref tind);
+         if (packedToken.Type == TokenType.Packed)
+         {
+            TokenNode arrayToken = PopToken(source, ref tind);
+            if (arrayToken.Type == TokenType.Array)
+            {
+               TokenNode leftSquareBracketToken = PopToken(source, ref tind);
+               if (leftSquareBracketToken.Type == TokenType.LeftSquareBracket)
+               {
+                  IndexTypeSpecification? indexTypeSpecification = IndexTypeSpecification.Parse(source, ref tind);
+                  if (indexTypeSpecification != null)
+                  {
+                     TokenNode rightSquareBracketToken = PopToken(source, ref tind);
+                     if (rightSquareBracketToken.Type == TokenType.RightSquareBracket)
+                     {
+                        TokenNode ofToken = PopToken(source, ref tind);
+                        if (ofToken.Type == TokenType.Of)
+                        {
+                           TypeIdentifier? typeIdentifier = TypeIdentifier.Parse(source, ref tind);
+                           if (typeIdentifier != null)
+                           {
+                              node = new PackedConformantArraySchema() 
+                              {
+                                 MySource = source, FileLocation = packedToken.FileLocation,
 
-         //if (fullyValid)
-         node = new PackedConformantArraySchema() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                                 PackedToken = packedToken,
+                                 ArrayToken = arrayToken,
+                                 LeftSquareBracketToken = leftSquareBracketToken,
+                                 IndexTypeSpecification = indexTypeSpecification,
+                                 RightSquareBracketToken = rightSquareBracketToken,
+                                 OfToken = ofToken,
+                                 TypeIdentifier = typeIdentifier
+                              };
+                           }
+                        }
+                     }
+                  }
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4239,8 +4520,8 @@ namespace PascalCompiler.Parser
 
       public class PointerType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.PointerType; }
+      public NewPointerType? NewPointerType { get; private init; } = null;
+      public PointerTypeIdentifier? PointerTypeIdentifier { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4258,10 +4539,37 @@ namespace PascalCompiler.Parser
          int tind = index;
          PointerType? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            NewPointerType? newPointerType = NewPointerType.Parse(source, ref tind);
+            if (newPointerType != null)
+            {
+               node = new PointerType()
+               {
+                  MySource = source, FileLocation = newPointerType.FileLocation,
 
-         //if (fullyValid)
-         node = new PointerType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  NewPointerType = newPointerType
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            PointerTypeIdentifier? pointerTypeIdentifier = PointerTypeIdentifier.Parse(source, ref tind);
+            if (pointerTypeIdentifier != null)
+            {
+               node = new PointerType()
+               {
+                  MySource = source,
+                  FileLocation = pointerTypeIdentifier.FileLocation,
+
+                  PointerTypeIdentifier = pointerTypeIdentifier
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4271,8 +4579,7 @@ namespace PascalCompiler.Parser
 
       public class PointerTypeIdentifier : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.PointerTypeIdentifier; }
+      public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4290,10 +4597,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          PointerTypeIdentifier? node = null;
 
-         //body
+         TypeIdentifier? typeIdentifier = TypeIdentifier.Parse(source, ref tind);
+         if (typeIdentifier != null)
+         {
+            node = new PointerTypeIdentifier() 
+            {
+               MySource = source, FileLocation = typeIdentifier.FileLocation,
 
-         //if (fullyValid)
-         node = new PointerTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               TypeIdentifier = typeIdentifier
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4303,8 +4616,7 @@ namespace PascalCompiler.Parser
 
       public class PointerVariable : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.PointerVariable; }
+      public VariableAccess VariableAccess { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4322,10 +4634,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          PointerVariable? node = null;
 
-         //body
+         VariableAccess? variableAccess = VariableAccess.Parse(source, ref tind);
+         if (variableAccess != null)
+         {
+            node = new PointerVariable()
+            {
+               MySource = source, FileLocation = variableAccess.FileLocation,
 
-         //if (fullyValid)
-         node = new PointerVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               VariableAccess = variableAccess
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4335,8 +4653,7 @@ namespace PascalCompiler.Parser
 
       public class ProceduralParameterSpecification : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProceduralParameterSpecification; }
+      public ProcedureHeading ProcedureHeading { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4354,10 +4671,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProceduralParameterSpecification? node = null;
 
-         //body
+         ProcedureHeading? procedureHeading = ProcedureHeading.Parse(source, ref tind);
+         if (procedureHeading != null)
+         {
+            node = new ProceduralParameterSpecification()
+            {
+               MySource = source, FileLocation = procedureHeading.FileLocation,
 
-         //if (fullyValid)
-         node = new ProceduralParameterSpecification() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               ProcedureHeading = procedureHeading
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4367,8 +4690,7 @@ namespace PascalCompiler.Parser
 
       public class ProcedureAndFunctionDeclarationPart : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureAndFunctionDeclarationPart; }
+      public IReadOnlyList<(ProcedureDeclaration? procedureDeclaration, FunctionDeclaration? functionDeclaration, TokenNode semicolonToken)> ProcedureAndFunctionDeclarationParts { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4386,10 +4708,35 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureAndFunctionDeclarationPart? node = null;
 
-         //body
+         int ttind = tind;
+         TokenNode firstLocation = PopToken(source, ref ttind);
+         List<(ProcedureDeclaration? procedureDeclaration, FunctionDeclaration? functionDeclaration, TokenNode semicolonToken)> procedureAndFunctionDeclarationParts = new();
+         {
+            while (true)
+            {
+               int pretind = tind;
+               ProcedureDeclaration? tempProcedureDeclaration = ProcedureDeclaration.Parse(source, ref tind);
+               FunctionDeclaration? tempFunctionDeclaration = null;
+               if (tempProcedureDeclaration == null)
+                  tempFunctionDeclaration = FunctionDeclaration.Parse(source, ref tind);
+               TokenNode tempSemicolon = PopToken(source, ref tind);
+               if (tempSemicolon.Type == TokenType.Semicolon && (tempFunctionDeclaration != null || tempProcedureDeclaration != null))
+               { //both exist (add to collection and continue)
+                  procedureAndFunctionDeclarationParts.Add((tempProcedureDeclaration, tempFunctionDeclaration, tempSemicolon));
+               }
+               else //in any other situation
+               {
+                  tind = pretind;
+                  break;
+               }
+            }
+         }
+         node = new ProcedureAndFunctionDeclarationPart() 
+         {
+            MySource = source, FileLocation = firstLocation.FileLocation,
 
-         //if (fullyValid)
-         node = new ProcedureAndFunctionDeclarationPart() { MySource = source, FileLocation = -69, NodeLength = 420 };
+            ProcedureAndFunctionDeclarationParts = procedureAndFunctionDeclarationParts
+         };
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4399,8 +4746,7 @@ namespace PascalCompiler.Parser
 
       public class ProcedureBlock : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureBlock; }
+      public Block Block { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4418,10 +4764,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureBlock? node = null;
 
-         //body
-
-         //if (fullyValid)
-         node = new ProcedureBlock() { MySource = source, FileLocation = -69, NodeLength = 420 };
+         Block? block = Block.Parse(source, ref tind);
+         if (block != null)
+         {
+            node = new ProcedureBlock() 
+            {
+               MySource = source, FileLocation = block.FileLocation,
+            
+               Block = block
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4431,8 +4783,11 @@ namespace PascalCompiler.Parser
 
       public class ProcedureDeclaration : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureDeclaration; }
+      public ProcedureHeading? ProcedureHeading { get; private init; } = null;
+      public Directive? Directive { get; private init; } = null;
+      public ProcedureIdentification? ProcedureIdentification { get; private init; } = null;
+      public ProcedureBlock? ProcedureBlock { get; private init; } = null;
+      public TokenNode SemicolonToken { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4450,10 +4805,81 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureDeclaration? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            ProcedureHeading? procedureHeading = ProcedureHeading.Parse(source, ref tind);
+            if (procedureHeading != null)
+            {
+               TokenNode semicolonToken = PopToken(source, ref tind);
+               if (semicolonToken.Type == TokenType.Semicolon)
+               {
+                  Directive? directive = Directive.Parse(source, ref tind);
+                  if (directive != null)
+                  {
+                     node = new ProcedureDeclaration()
+                     {
+                        MySource = source, FileLocation = procedureHeading.FileLocation,
 
-         //if (fullyValid)
-         node = new ProcedureDeclaration() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                        ProcedureHeading = procedureHeading,
+                        SemicolonToken = semicolonToken,
+                        Directive = directive
+                     };
+                  }
+               }
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            ProcedureIdentification? procedureIdentification = ProcedureIdentification.Parse(source, ref tind);
+            if (procedureIdentification != null)
+            {
+               TokenNode semicolonToken = PopToken(source, ref tind);
+               if (semicolonToken.Type == TokenType.Semicolon)
+               {
+                  ProcedureBlock? procedureBlock = ProcedureBlock.Parse(source, ref tind);
+                  if (procedureBlock != null)
+                  {
+                     node = new ProcedureDeclaration()
+                     {
+                        MySource = source, FileLocation = procedureIdentification.FileLocation,
+
+                        ProcedureIdentification = procedureIdentification,
+                        SemicolonToken = semicolonToken,
+                        ProcedureBlock = procedureBlock
+                     };
+                  }
+               }
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            ProcedureHeading? procedureHeading = ProcedureHeading.Parse(source, ref tind);
+            if (procedureHeading != null)
+            {
+               TokenNode semicolonToken = PopToken(source, ref tind);
+               if (semicolonToken.Type == TokenType.Semicolon)
+               {
+                  ProcedureBlock? procedureBlock = ProcedureBlock.Parse(source, ref tind);
+                  if (procedureBlock != null)
+                  {
+                     node = new ProcedureDeclaration()
+                     {
+                        MySource = source, FileLocation = procedureHeading.FileLocation,
+
+                        ProcedureHeading = procedureHeading,
+                        SemicolonToken = semicolonToken,
+                        ProcedureBlock = procedureBlock
+                     };
+                  }
+               }
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4463,8 +4889,9 @@ namespace PascalCompiler.Parser
 
       public class ProcedureHeading : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureHeading; }
+      public TokenNode ProcedureToken { get; private init; } = null!;
+      public Identifier Identifier { get; private init; } = null!;
+      public FormalParameterList? FormalParameterList { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4482,10 +4909,23 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureHeading? node = null;
 
-         //body
+         TokenNode procedureToken = PopToken(source, ref tind);
+         if (procedureToken.Type == TokenType.Procedure)
+         {
+            Identifier? identifier = Identifier.Parse(source, ref tind);
+            if (identifier != null)
+            {
+               FormalParameterList? formalParameterList = FormalParameterList.Parse(source, ref tind);
+               node = new ProcedureHeading() 
+               {
+                  MySource = source, FileLocation = procedureToken.FileLocation,
 
-         //if (fullyValid)
-         node = new ProcedureHeading() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  ProcedureToken = procedureToken,
+                  Identifier = identifier,
+                  FormalParameterList = formalParameterList
+               };
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4495,8 +4935,8 @@ namespace PascalCompiler.Parser
 
       public class ProcedureIdentification : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureIdentification; }
+      public TokenNode ProcedureToken { get; private init; } = null!;
+      public ProcedureIdentifier ProcedureIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4514,10 +4954,21 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureIdentification? node = null;
 
-         //body
+         TokenNode procedureToken = PopToken(source, ref tind);
+         if (procedureToken.Type == TokenType.Procedure)
+         {
+            ProcedureIdentifier? procedureIdentifier = ProcedureIdentifier.Parse(source, ref tind);
+            if (procedureIdentifier != null)
+            {
+               node = new ProcedureIdentification() 
+               {
+                  MySource = source, FileLocation = procedureToken.FileLocation,
 
-         //if (fullyValid)
-         node = new ProcedureIdentification() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  ProcedureToken = procedureToken,
+                  ProcedureIdentifier = procedureIdentifier
+               };
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4527,8 +4978,7 @@ namespace PascalCompiler.Parser
 
       public class ProcedureIdentifier : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureIdentifier; }
+      public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4546,10 +4996,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureIdentifier? node = null;
 
-         //body
+         Identifier? identifier = Identifier.Parse(source, ref tind);
+         if (identifier != null)
+         {
+            node = new ProcedureIdentifier() 
+            {
+               MySource = source, FileLocation = identifier.FileLocation,
 
-         //if (fullyValid)
-         node = new ProcedureIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               Identifier = identifier
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4559,8 +5015,12 @@ namespace PascalCompiler.Parser
 
       public class ProcedureStatement : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProcedureStatement; }
+      public ProcedureIdentifier ProcedureIdentifier { get; private init; } = null!;
+      public ActualParameterList? ActualParameterList { get; private init; } = null;
+      public ReadParameterList? ReadParameterList { get; private init; } = null;
+      public ReadlnParameterList? ReadlnParameterList { get; private init; } = null;
+      public WriteParameterList? WriteParameterList { get; private init; } = null;
+      public WritelnParameterList? WritelnParameterList { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4578,10 +5038,87 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProcedureStatement? node = null;
 
-         //body
+         ProcedureIdentifier? procedureIdentifier = ProcedureIdentifier.Parse(source, ref tind);
+         if (procedureIdentifier != null)
+         {
+            if (node == null)
+            {
+               int pretind = tind;
+               ReadParameterList? readParameterList = ReadParameterList.Parse(source, ref tind);
+               if (readParameterList != null)
+               {
+                  node = new ProcedureStatement() 
+                  {
+                     MySource = source, FileLocation = procedureIdentifier.FileLocation,
 
-         //if (fullyValid)
-         node = new ProcedureStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     ProcedureIdentifier = procedureIdentifier,
+                     ReadParameterList = readParameterList
+                  };
+               }
+               tind = node == null ? pretind : tind;
+            }
+            if (node == null)
+            {
+               int pretind = tind;
+               ReadlnParameterList? readlnParameterList = ReadlnParameterList.Parse(source, ref tind);
+               if (readlnParameterList != null)
+               {
+                  node = new ProcedureStatement()
+                  {
+                     MySource = source, FileLocation = procedureIdentifier.FileLocation,
+
+                     ProcedureIdentifier = procedureIdentifier,
+                     ReadlnParameterList = readlnParameterList
+                  };
+               }
+               tind = node == null ? pretind : tind;
+            }
+            if (node == null)
+            {
+               int pretind = tind;
+               WriteParameterList? writeParameterList = WriteParameterList.Parse(source, ref tind);
+               if (writeParameterList != null)
+               {
+                  node = new ProcedureStatement()
+                  {
+                     MySource = source, FileLocation = procedureIdentifier.FileLocation,
+
+                     ProcedureIdentifier = procedureIdentifier,
+                     WriteParameterList = writeParameterList
+                  };
+               }
+               tind = node == null ? pretind : tind;
+            }
+            if (node == null)
+            {
+               int pretind = tind;
+               WritelnParameterList? writelnParameterList = WritelnParameterList.Parse(source, ref tind);
+               if (writelnParameterList != null)
+               {
+                  node = new ProcedureStatement()
+                  {
+                     MySource = source, FileLocation = procedureIdentifier.FileLocation,
+
+                     ProcedureIdentifier = procedureIdentifier,
+                     WritelnParameterList = writelnParameterList
+                  };
+               }
+               tind = node == null ? pretind : tind;
+            }
+            if (node == null)
+            { //actual-parameter-list needs to be last, because it's optional (no null check), so this will always pass.
+               int pretind = tind;
+               ActualParameterList? actualParameterList = ActualParameterList.Parse(source, ref tind);
+               node = new ProcedureStatement()
+               {
+                  MySource = source, FileLocation = procedureIdentifier.FileLocation,
+
+                  ProcedureIdentifier = procedureIdentifier,
+                  ActualParameterList = actualParameterList
+               };
+               tind = node == null ? pretind : tind;
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4592,10 +5129,9 @@ namespace PascalCompiler.Parser
       public class Program : ASTNode
    {
       public ProgramHeading ProgramHeading { get; private init; } = null!;
-      public Token SemicolonToken { get; private init; } = null!;
+      public TokenNode SemicolonToken { get; private init; } = null!;
       public ProgramBlock ProgramBlock { get; private init; } = null!;
-      public Token DotToken { get; private init; } = null!;
-      public override ASTNodeType NodeType { get => ASTNodeType.Program; }
+      public TokenNode DotToken { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          if (prettyPrint)
@@ -4629,20 +5165,19 @@ namespace PascalCompiler.Parser
          ProgramHeading? ph = ProgramHeading.Parse(source, ref tind);
          if (ph != null)
          {
-            Token semicolon = PopToken(source, ref tind);
+            TokenNode semicolon = PopToken(source, ref tind);
             if (semicolon.Type == TokenType.Semicolon)
             {
                ProgramBlock? pb = ProgramBlock.Parse(source, ref tind);
                if (pb != null)
                {
-                  Token dot = PopToken(source, ref tind);
+                  TokenNode dot = PopToken(source, ref tind);
                   if (dot.Type == TokenType.Dot)
                   {
                      node = new Program()
                      {
-                        MySource = source,
-                        FileLocation = ph.FileLocation,
-                        NodeLength = 420,
+                        MySource = source, FileLocation = ph.FileLocation,
+
                         ProgramHeading = ph,
                         SemicolonToken = semicolon,
                         ProgramBlock = pb,
@@ -4661,8 +5196,7 @@ namespace PascalCompiler.Parser
 
       public class ProgramBlock : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProgramBlock; }
+      public Block Block { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4680,10 +5214,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProgramBlock? node = null;
 
-         //body
-
-         //if (fullyValid)
-         node = new ProgramBlock() { MySource = source, FileLocation = -69, NodeLength = 420 };
+         Block? block = Block.Parse(source, ref tind);
+         if (block != null)
+         {
+            node = new ProgramBlock() 
+            {
+               MySource = source, FileLocation = block.FileLocation ,
+            
+               Block = block
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4693,8 +5233,11 @@ namespace PascalCompiler.Parser
 
       public class ProgramHeading : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProgramHeading; }
+      public TokenNode ProgramToken { get; private init; } = null!;
+      public Identifier Identifier { get; private init; } = null!;
+      public TokenNode? OpenParenToken { get; private init; } = null;
+      public ProgramParameterList? ProgramParameterList { get; private init; } = null;
+      public TokenNode? CloseParenToken { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4712,10 +5255,54 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProgramHeading? node = null;
 
-         //body
+         TokenNode programToken = PopToken(source, ref tind);
+         if (programToken.Type == TokenType.Program)
+         {
+            Identifier? identifier = Identifier.Parse(source, ref tind);
+            if (identifier != null)
+            {
+               if (node == null)
+               {
+                  int pretind = tind;
+                  TokenNode openParenToken = PopToken(source, ref tind);
+                  if (openParenToken.Type == TokenType.OpenParen)
+                  {
+                     ProgramParameterList? programParameterList = ProgramParameterList.Parse(source, ref tind);
+                     if (programParameterList != null)
+                     {
+                        TokenNode closeParenToken = PopToken(source, ref tind);
+                        if (closeParenToken.Type == TokenType.CloseParen)
+                        {
+                           node = new ProgramHeading()
+                           {
+                              MySource = source,
+                              FileLocation = programToken.FileLocation,
 
-         //if (fullyValid)
-         node = new ProgramHeading() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                              ProgramToken = programToken,
+                              Identifier = identifier,
+                              OpenParenToken = openParenToken,
+                              ProgramParameterList = programParameterList,
+                              CloseParenToken = closeParenToken
+                           };
+                        }
+                     }
+                  }
+                  tind = node == null ? pretind : tind;
+               }
+               if (node == null)
+               {
+                  int pretind = tind;
+                  node = new ProgramHeading()
+                  {
+                     MySource = source, FileLocation = programToken.FileLocation,
+
+                     ProgramToken = programToken,
+                     Identifier = identifier
+                  };
+                  tind = node == null ? pretind : tind;
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4725,8 +5312,7 @@ namespace PascalCompiler.Parser
 
       public class ProgramParameterList : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ProgramParameterList; }
+      public IdentifierList IdentifierList { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4744,10 +5330,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          ProgramParameterList? node = null;
 
-         //body
+         IdentifierList? identifierList = IdentifierList.Parse(source, ref tind);
+         if (identifierList != null)
+         {
+            node = new ProgramParameterList() 
+            {
+               MySource = source, FileLocation = identifierList.FileLocation,
 
-         //if (fullyValid)
-         node = new ProgramParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               IdentifierList = identifierList
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4757,8 +5349,12 @@ namespace PascalCompiler.Parser
 
       public class ReadParameterList : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ReadParameterList; }
+      public TokenNode OpenParenToken { get; private init; } = null!;
+      public FileVariable? FileVariable { get; private init; } = null;
+      public TokenNode? CommaToken { get; private init; } = null;
+      public VariableAccess VariableAccess { get; private init; } = null!;
+      public IReadOnlyList<(TokenNode commaToken, VariableAccess variableAccess)> SecondaryVariableAccesses { get; private init; } = null!;
+      public TokenNode CloseParenToken { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4776,10 +5372,59 @@ namespace PascalCompiler.Parser
          int tind = index;
          ReadParameterList? node = null;
 
-         //body
-
-         //if (fullyValid)
-         node = new ReadParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
+         TokenNode openParenToken = PopToken(source, ref tind);
+         if (openParenToken.Type == TokenType.OpenParen)
+         {
+            FileVariable? fileVariable = null;
+            TokenNode? commaToken = null;
+            {
+               int pretind = tind;
+               fileVariable = FileVariable.Parse(source, ref tind);
+               if (fileVariable != null)
+               {
+                  commaToken = PopToken(source, ref tind);
+               }
+               if (fileVariable == null || commaToken?.Type != TokenType.Comma)
+                  tind = pretind;
+            }
+            VariableAccess? variableAccess = VariableAccess.Parse(source, ref tind);
+            if (variableAccess != null)
+            {
+               List<(TokenNode commaToken, VariableAccess variableAccess)> secondaryVariableAccesses = new();
+               {
+                  while (true)
+                  {
+                     int pretind = tind;
+                     TokenNode tempComma = PopToken(source, ref tind);
+                     VariableAccess? tempVariableAccess = VariableAccess.Parse(source, ref tind);
+                     if (tempComma.Type == TokenType.Comma && tempVariableAccess != null)
+                     { //both exist (add to collection and continue)
+                        secondaryVariableAccesses.Add((tempComma, tempVariableAccess));
+                     }
+                     else //in any other situation
+                     {
+                        tind = pretind;
+                        break;
+                     }
+                  }
+               }
+               TokenNode closeParenToken = PopToken(source, ref tind);
+               if (closeParenToken.Type == TokenType.CloseParen)
+               {
+                  node = new ReadParameterList() 
+                  {
+                     MySource = source, FileLocation = openParenToken.FileLocation,
+               
+                     OpenParenToken = openParenToken,
+                     FileVariable = fileVariable,
+                     CommaToken = commaToken,
+                     VariableAccess = variableAccess,
+                     SecondaryVariableAccesses = secondaryVariableAccesses,
+                     CloseParenToken = closeParenToken
+                  };
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4789,8 +5434,11 @@ namespace PascalCompiler.Parser
 
       public class ReadlnParameterList : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ReadlnParameterList; }
+      public TokenNode? OpenParenToken { get; private init; } = null;
+      public FileVariable? FileVariable { get; private init; } = null;
+      public VariableAccess? VariableAccess { get; private init; } = null;
+      public IReadOnlyList<(TokenNode commaToken, VariableAccess variableAccess)>? SecondaryVariableAccesses { get; private init; } = null;
+      public TokenNode? CloseParenToken { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4808,10 +5456,46 @@ namespace PascalCompiler.Parser
          int tind = index;
          ReadlnParameterList? node = null;
 
-         //body
+         TokenNode openParenToken = PopToken(source, ref tind);
+         if (openParenToken.Type == TokenType.OpenParen)
+         {
+            FileVariable? fileVariable = FileVariable.Parse(source, ref tind);
+            VariableAccess? variableAccess = null;
+            if (fileVariable != null)
+               variableAccess = VariableAccess.Parse(source, ref tind);
+            List<(TokenNode commaToken, VariableAccess variableAccess)> secondaryVariableAccesses = new();
+            {
+               while (true)
+               {
+                  int pretind = tind;
+                  TokenNode tempComma = PopToken(source, ref tind);
+                  VariableAccess? tempVariableAccess = VariableAccess.Parse(source, ref tind);
+                  if (tempComma.Type == TokenType.Comma && tempVariableAccess != null)
+                  { //both exist (add to collection and continue)
+                     secondaryVariableAccesses.Add((tempComma, tempVariableAccess));
+                  }
+                  else //in any other situation
+                  {
+                     tind = pretind;
+                     break;
+                  }
+               }
+            }
+            TokenNode closeParenToken = PopToken(source, ref tind);
+            if (closeParenToken.Type == TokenType.CloseParen)
+            {
+               node = new ReadlnParameterList()
+               {
+                  MySource = source, FileLocation = openParenToken.FileLocation,
 
-         //if (fullyValid)
-         node = new ReadlnParameterList() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  OpenParenToken = openParenToken,
+                  FileVariable = fileVariable,
+                  VariableAccess = variableAccess,
+                  SecondaryVariableAccesses = secondaryVariableAccesses,
+                  CloseParenToken = closeParenToken
+               };
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4821,8 +5505,7 @@ namespace PascalCompiler.Parser
 
       public class RealTypeIdentifier : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RealTypeIdentifier; }
+      public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4840,10 +5523,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          RealTypeIdentifier? node = null;
 
-         //body
+         TypeIdentifier? typeIdentifier = TypeIdentifier.Parse(source, ref tind);
+         if (typeIdentifier != null)
+         {
+            node = new RealTypeIdentifier() 
+            {
+               MySource = source, FileLocation = typeIdentifier.FileLocation,
 
-         //if (fullyValid)
-         node = new RealTypeIdentifier() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               TypeIdentifier = typeIdentifier
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4853,8 +5542,9 @@ namespace PascalCompiler.Parser
 
       public class RecordSection : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RecordSection; }
+      public IdentifierList IdentifierList { get; private init; } = null!;
+      public TokenNode ColonToken { get; private init; } = null!;
+      public TypeDenoter TypeDenoter { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4872,10 +5562,26 @@ namespace PascalCompiler.Parser
          int tind = index;
          RecordSection? node = null;
 
-         //body
+         IdentifierList? identifierList = IdentifierList.Parse(source, ref tind);
+         if (identifierList != null)
+         {
+            TokenNode colonToken = PopToken(source, ref tind);
+            if (colonToken.Type == TokenType.Colon)
+            {
+               TypeDenoter? typeDenoter = TypeDenoter.Parse(source, ref tind);
+               if (typeDenoter != null)
+               {
+                  node = new RecordSection() 
+                  {
+                     MySource = source, FileLocation = identifierList.FileLocation,
 
-         //if (fullyValid)
-         node = new RecordSection() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     IdentifierList = identifierList,
+                     ColonToken = colonToken,
+                     TypeDenoter = typeDenoter
+                  };
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4885,8 +5591,9 @@ namespace PascalCompiler.Parser
 
       public class RecordType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RecordType; }
+      public TokenNode RecordToken { get; private init; } = null!;
+      public FieldList FieldList { get; private init; } = null!;
+      public TokenNode EndToken { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4904,10 +5611,26 @@ namespace PascalCompiler.Parser
          int tind = index;
          RecordType? node = null;
 
-         //body
+         TokenNode recordToken = PopToken(source, ref tind);
+         if (recordToken.Type == TokenType.Record)
+         {
+            FieldList? fieldList = FieldList.Parse(source, ref tind);
+            if (fieldList != null)
+            {
+               TokenNode endToken = PopToken(source, ref tind);
+               if (endToken.Type == TokenType.End)
+               {
+                  node = new RecordType() 
+                  {
+                     MySource = source, FileLocation = recordToken.FileLocation,
 
-         //if (fullyValid)
-         node = new RecordType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     RecordToken = recordToken,
+                     FieldList = fieldList,
+                     EndToken = endToken
+                  };
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4917,8 +5640,7 @@ namespace PascalCompiler.Parser
 
       public class RecordVariable : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RecordVariable; }
+      public VariableAccess VariableAccess { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4936,10 +5658,16 @@ namespace PascalCompiler.Parser
          int tind = index;
          RecordVariable? node = null;
 
-         //body
+         VariableAccess? variableAccess = VariableAccess.Parse(source, ref tind);
+         if (variableAccess != null)
+         {
+            node = new RecordVariable() 
+            {
+               MySource = source, FileLocation = variableAccess.FileLocation,
 
-         //if (fullyValid)
-         node = new RecordVariable() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               VariableAccess = variableAccess
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4949,8 +5677,8 @@ namespace PascalCompiler.Parser
 
       public class RecordVariableList : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RecordVariableList; }
+      public RecordVariable RecordVariable { get; private init; } = null!;
+      public IReadOnlyList<(TokenNode commaToken, RecordVariable recordVariable)> SecondaryRecordVariables { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -4968,10 +5696,35 @@ namespace PascalCompiler.Parser
          int tind = index;
          RecordVariableList? node = null;
 
-         //body
+         RecordVariable? recordVariable = RecordVariable.Parse(source, ref tind);
+         if (recordVariable != null)
+         {
+            List<(TokenNode commaToken, RecordVariable recordVariable)> secondaryRecordVariables = new();
+            {
+               while (true)
+               {
+                  int pretind = tind;
+                  TokenNode tempComma = PopToken(source, ref tind);
+                  RecordVariable? tempRecordVariable = RecordVariable.Parse(source, ref tind);
+                  if (tempComma.Type == TokenType.Comma && tempRecordVariable != null)
+                  { //both exist (add to collection and continue)
+                     secondaryRecordVariables.Add((tempComma, tempRecordVariable));
+                  }
+                  else //in any other situation
+                  {
+                     tind = pretind;
+                     break;
+                  }
+               }
+            }
+            node = new RecordVariableList() 
+            {
+               MySource = source, FileLocation = recordVariable.FileLocation,
 
-         //if (fullyValid)
-         node = new RecordVariableList() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               RecordVariable = recordVariable,
+               SecondaryRecordVariables = secondaryRecordVariables
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -4981,8 +5734,13 @@ namespace PascalCompiler.Parser
 
       public class RelationalOperator : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RelationalOperator; }
+      public TokenNode? EqualsToken { get; private init; } = null;
+      public TokenNode? KetPairToken { get; private init; } = null;
+      public TokenNode? LessThanToken { get; private init; } = null;
+      public TokenNode? GreaterThanToken { get; private init; } = null;
+      public TokenNode? LessThanOrEqualToken { get; private init; } = null;
+      public TokenNode? GreaterThanOrEqualToken { get; private init; } = null;
+      public TokenNode? InToken { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5000,10 +5758,116 @@ namespace PascalCompiler.Parser
          int tind = index;
          RelationalOperator? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode equalsToken = PopToken(source, ref tind);
+            if (equalsToken.Type == TokenType.Equals)
+            {
+               node = new RelationalOperator() 
+               {
+                  MySource = source, FileLocation = equalsToken.FileLocation,
+               
+                  EqualsToken = equalsToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode ketPairToken = PopToken(source, ref tind);
+            if (ketPairToken.Type == TokenType.KetPair)
+            {
+               node = new RelationalOperator()
+               {
+                  MySource = source, FileLocation = ketPairToken.FileLocation,
 
-         //if (fullyValid)
-         node = new RelationalOperator() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  KetPairToken = ketPairToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode lessThanToken = PopToken(source, ref tind);
+            if (lessThanToken.Type == TokenType.LessThan)
+            {
+               node = new RelationalOperator()
+               {
+                  MySource = source,
+                  FileLocation = lessThanToken.FileLocation,
+
+                  LessThanToken = lessThanToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode greaterThanToken = PopToken(source, ref tind);
+            if (greaterThanToken.Type == TokenType.GreaterThan)
+            {
+               node = new RelationalOperator()
+               {
+                  MySource = source,
+                  FileLocation = greaterThanToken.FileLocation,
+
+                  GreaterThanToken = greaterThanToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode lessThanOrEqualToken = PopToken(source, ref tind);
+            if (lessThanOrEqualToken.Type == TokenType.LessThanOrEqual)
+            {
+               node = new RelationalOperator()
+               {
+                  MySource = source,
+                  FileLocation = lessThanOrEqualToken.FileLocation,
+
+                  LessThanOrEqualToken = lessThanOrEqualToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode greaterThanOrEqualToken = PopToken(source, ref tind);
+            if (greaterThanOrEqualToken.Type == TokenType.GreaterThanOrEqual)
+            {
+               node = new RelationalOperator()
+               {
+                  MySource = source,
+                  FileLocation = greaterThanOrEqualToken.FileLocation,
+
+                  GreaterThanOrEqualToken = greaterThanOrEqualToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode inToken = PopToken(source, ref tind);
+            if (inToken.Type == TokenType.In)
+            {
+               node = new RelationalOperator()
+               {
+                  MySource = source,
+                  FileLocation = inToken.FileLocation,
+
+                  InToken = inToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5013,8 +5877,10 @@ namespace PascalCompiler.Parser
 
       public class RepeatStatement : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RepeatStatement; }
+      public TokenNode RepeatToken { get; private init; } = null!;
+      public StatementSequence StatementSequence { get; private init; } = null!;
+      public TokenNode UntilToken { get; private init; } = null!;
+      public BooleanExpression BooleanExpression { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5032,10 +5898,31 @@ namespace PascalCompiler.Parser
          int tind = index;
          RepeatStatement? node = null;
 
-         //body
-
-         //if (fullyValid)
-         node = new RepeatStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
+         TokenNode repeatToken = PopToken(source, ref tind);
+         if (repeatToken.Type == TokenType.Repeat)
+         {
+            StatementSequence? statementSequence = StatementSequence.Parse(source, ref tind);
+            if (statementSequence != null)
+            {
+               TokenNode untilToken = PopToken(source, ref tind);
+               if (untilToken.Type == TokenType.Until)
+               {
+                  BooleanExpression? booleanExpression = BooleanExpression.Parse(source, ref tind);
+                  if (booleanExpression != null)
+                  {
+                     node = new RepeatStatement() 
+                     {
+                        MySource = source, FileLocation = repeatToken.FileLocation,
+                     
+                        RepeatToken = repeatToken,
+                        StatementSequence = statementSequence,
+                        UntilToken = untilToken,
+                        BooleanExpression = booleanExpression
+                     };
+                  }
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5045,8 +5932,9 @@ namespace PascalCompiler.Parser
 
       public class RepetitiveStatement : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.RepetitiveStatement; }
+      public RepeatStatement? RepeatStatement { get; private init; } = null;
+      public WhileStatement? WhileStatement { get; private init; } = null;
+      public ForStatement? ForStatement { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5064,10 +5952,51 @@ namespace PascalCompiler.Parser
          int tind = index;
          RepetitiveStatement? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            RepeatStatement? repeatStatement = RepeatStatement.Parse(source, ref tind);
+            if (repeatStatement != null)
+            {
+               node = new RepetitiveStatement() 
+               {
+                  MySource = source, FileLocation = repeatStatement.FileLocation,
 
-         //if (fullyValid)
-         node = new RepetitiveStatement() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  RepeatStatement = repeatStatement
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            WhileStatement? whileStatement = WhileStatement.Parse(source, ref tind);
+            if (whileStatement != null)
+            {
+               node = new RepetitiveStatement()
+               {
+                  MySource = source, FileLocation = whileStatement.FileLocation,
+
+                  WhileStatement = whileStatement
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            ForStatement? forStatement = ForStatement.Parse(source, ref tind);
+            if (forStatement != null)
+            {
+               node = new RepetitiveStatement()
+               {
+                  MySource = source, FileLocation = forStatement.FileLocation,
+
+                  ForStatement = forStatement
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5077,8 +6006,8 @@ namespace PascalCompiler.Parser
 
       public class ResultType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ResultType; }
+      public SimpleTypeIdentifier? SimpleTypeIdentifier { get; private init; } = null;
+      public PointerTypeIdentifier? PointerTypeIdentifier { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5096,10 +6025,36 @@ namespace PascalCompiler.Parser
          int tind = index;
          ResultType? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            SimpleTypeIdentifier? simpleTypeIdentifier = SimpleTypeIdentifier.Parse(source, ref tind);
+            if (simpleTypeIdentifier != null)
+            {
+               node = new ResultType()
+               {
+                  MySource = source, FileLocation = simpleTypeIdentifier.FileLocation,
 
-         //if (fullyValid)
-         node = new ResultType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  SimpleTypeIdentifier = simpleTypeIdentifier
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            PointerTypeIdentifier? pointerTypeIdentifier = PointerTypeIdentifier.Parse(source, ref tind);
+            if (pointerTypeIdentifier != null)
+            {
+               node = new ResultType()
+               {
+                  MySource = source, FileLocation = pointerTypeIdentifier.FileLocation,
+
+                  PointerTypeIdentifier = pointerTypeIdentifier
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5109,8 +6064,8 @@ namespace PascalCompiler.Parser
 
       public class ScaleFactor : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.ScaleFactor; }
+      public Sign? Sign { get; private init; } = null;
+      public DigitSequence DigitSequence { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5128,10 +6083,18 @@ namespace PascalCompiler.Parser
          int tind = index;
          ScaleFactor? node = null;
 
-         //body
+         Sign? sign = Sign.Parse(source, ref tind);
+         DigitSequence? digitSequence = DigitSequence.Parse(source, ref tind);
+         if (digitSequence != null)
+         {
+            node = new ScaleFactor() 
+            {
+               MySource = source, FileLocation = sign?.FileLocation ?? digitSequence.FileLocation,
 
-         //if (fullyValid)
-         node = new ScaleFactor() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               Sign = sign, 
+               DigitSequence = digitSequence
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5141,8 +6104,10 @@ namespace PascalCompiler.Parser
 
       public class SetConstructor : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.SetConstructor; }
+      public TokenNode LeftSquareBracketToken { get; private init; } = null!;
+      public MemberDesignator? MemberDesignator { get; private init; } = null;
+      public IReadOnlyList<(TokenNode commaToken, MemberDesignator memberDesignator)>? SecondaryMemberDesignators { get; private init; } = null;
+      public TokenNode RightSquareBracketToken { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5160,10 +6125,71 @@ namespace PascalCompiler.Parser
          int tind = index;
          SetConstructor? node = null;
 
-         //body
+         if (node == null)
+         {
+            int ppretind = tind;
+            TokenNode leftSquareBracketToken = PopToken(source, ref tind);
+            if (leftSquareBracketToken.Type == TokenType.LeftSquareBracket)
+            {
+               MemberDesignator? memberDesignator = MemberDesignator.Parse(source, ref tind);
+               if (memberDesignator != null)
+               {
+                  List<(TokenNode commaToken, MemberDesignator memberDesignator)> secondaryMemberDesignators = new();
+                  {
+                     while (true)
+                     {
+                        int pretind = tind;
+                        TokenNode tempComma = PopToken(source, ref tind);
+                        MemberDesignator? tempMemberDesignator = MemberDesignator.Parse(source, ref tind);
+                        if (tempComma.Type == TokenType.Comma && tempMemberDesignator != null)
+                        { //both exist (add to collection and continue)
+                           secondaryMemberDesignators.Add((tempComma, tempMemberDesignator));
+                        }
+                        else //in any other situation
+                        {
+                           tind = pretind;
+                           break;
+                        }
+                     }
+                  }
+                  TokenNode rightSquareBracketToken = PopToken(source, ref tind);
+                  if (rightSquareBracketToken.Type == TokenType.RightSquareBracket)
+                  {
+                     node = new SetConstructor() 
+                     {
+                        MySource = source, FileLocation = leftSquareBracketToken.FileLocation,
+               
+                        LeftSquareBracketToken = leftSquareBracketToken,
+                        MemberDesignator = memberDesignator,
+                        SecondaryMemberDesignators = secondaryMemberDesignators,
+                        RightSquareBracketToken = rightSquareBracketToken
+                     };
+                  }
+               }
+            }
+            tind = node == null ? ppretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode leftSquareBracketToken = PopToken(source, ref tind);
+            if (leftSquareBracketToken.Type == TokenType.LeftSquareBracket)
+            {
+               TokenNode rightSquareBracketToken = PopToken(source, ref tind);
+               if (rightSquareBracketToken.Type == TokenType.RightSquareBracket)
+               {
+                  node = new SetConstructor()
+                  {
+                     MySource = source,
+                     FileLocation = leftSquareBracketToken.FileLocation,
 
-         //if (fullyValid)
-         node = new SetConstructor() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     LeftSquareBracketToken = leftSquareBracketToken,
+                     RightSquareBracketToken = rightSquareBracketToken
+                  };
+               }
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5173,8 +6199,9 @@ namespace PascalCompiler.Parser
 
       public class SetType : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.SetType; }
+      public TokenNode SetToken { get; private init; } = null!;
+      public TokenNode OfToken { get; private init; } = null!;
+      public BaseType BaseType { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5192,10 +6219,26 @@ namespace PascalCompiler.Parser
          int tind = index;
          SetType? node = null;
 
-         //body
+         TokenNode setToken = PopToken(source, ref tind);
+         if (setToken.Type == TokenType.Set)
+         {
+            TokenNode ofToken = PopToken(source, ref tind);
+            if (ofToken.Type == TokenType.Of)
+            {
+               BaseType? baseType = BaseType.Parse(source, ref tind);
+               if (baseType != null)
+               {
+                  node = new SetType() 
+                  {
+                     MySource = source, FileLocation = setToken.FileLocation,
 
-         //if (fullyValid)
-         node = new SetType() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                     SetToken = setToken,
+                     OfToken = ofToken,
+                     BaseType = baseType
+                  };
+               }
+            }
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5205,8 +6248,8 @@ namespace PascalCompiler.Parser
 
       public class Sign : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.Sign; }
+      public TokenNode? PlusToken { get; private init; } = null;
+      public TokenNode? MinusToken { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5224,10 +6267,36 @@ namespace PascalCompiler.Parser
          int tind = index;
          Sign? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode plusToken = PopToken(source, ref tind);
+            if (plusToken.Type == TokenType.Plus)
+            {
+               node = new Sign() 
+               {
+                  MySource = source, FileLocation = plusToken.FileLocation,
 
-         //if (fullyValid)
-         node = new Sign() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  PlusToken = plusToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            TokenNode minusToken = PopToken(source, ref tind);
+            if (minusToken.Type == TokenType.Minus)
+            {
+               node = new Sign()
+               {
+                  MySource = source, FileLocation = minusToken.FileLocation,
+
+                  MinusToken = minusToken
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5237,8 +6306,8 @@ namespace PascalCompiler.Parser
 
       public class SignedInteger : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.SignedInteger; }
+      public Sign? Sign { get; private init; } = null;
+      public UnsignedInteger UnsignedInteger { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5256,10 +6325,18 @@ namespace PascalCompiler.Parser
          int tind = index;
          SignedInteger? node = null;
 
-         //body
+         Sign? sign = Sign.Parse(source, ref tind);
+         UnsignedInteger? unsignedInteger = UnsignedInteger.Parse(source, ref tind);
+         if (unsignedInteger != null)
+         {
+            node = new SignedInteger() 
+            {
+               MySource = source, FileLocation = sign?.FileLocation ?? unsignedInteger.FileLocation,
 
-         //if (fullyValid)
-         node = new SignedInteger() { MySource = source, FileLocation = -69, NodeLength = 420 };
+               Sign = sign,
+               UnsignedInteger = unsignedInteger
+            };
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
@@ -5269,8 +6346,8 @@ namespace PascalCompiler.Parser
 
       public class SignedNumber : ASTNode
    {
-      //content fields (tokens & nodes) go here.
-      public override ASTNodeType NodeType { get => ASTNodeType.SignedNumber; }
+      public SignedInteger? SignedInteger { get; private init; } = null;
+      public SignedReal? SignedReal { get; private init; } = null;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -5288,10 +6365,36 @@ namespace PascalCompiler.Parser
          int tind = index;
          SignedNumber? node = null;
 
-         //body
+         if (node == null)
+         {
+            int pretind = tind;
+            SignedInteger? signedInteger = SignedInteger.Parse(source, ref tind);
+            if (signedInteger != null)
+            {
+               node = new SignedNumber()
+               {
+                  MySource = source, FileLocation = signedInteger.FileLocation,
 
-         //if (fullyValid)
-         node = new SignedNumber() { MySource = source, FileLocation = -69, NodeLength = 420 };
+                  SignedInteger = signedInteger
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
+         if (node == null)
+         {
+            int pretind = tind;
+            SignedReal? signedReal = SignedReal.Parse(source, ref tind);
+            if (signedReal != null)
+            {
+               node = new SignedNumber()
+               {
+                  MySource = source, FileLocation = signedReal.FileLocation,
+
+                  SignedReal = signedReal
+               };
+            }
+            tind = node == null ? pretind : tind;
+         }
 
          node?.AssertCorrectStructure();
          index = node == null ? index : tind;
