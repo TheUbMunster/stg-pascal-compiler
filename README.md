@@ -1,6 +1,6 @@
 # Pascal Compiler
 
-# ***WIP***
+## Copyright TheUbMunster 2024, all rights reserved.
 
 **The below information may not be applicable (yet) as this is a WIP**
 
@@ -9,11 +9,14 @@ Any reference to "the spec", refers to this spec.
 It probably has some flaws, so I wouldn't use it for anything important, just a fun project.
 Shooting for ?linux x86_64 ABI?.
 
-Compiler structure:
-* Scanner->Lexer->Parser->Check->Emit->Assemble (MASM)->Link (ld)
+Program flow:
+* Scanner (Complete)->Lexer (Complete)->Parser (In-progress)->Check (Todo)
 
-Interpreter structure:
-* Scanner->Lexer->Parser->Check->Interpreter
+Compiler path:
+* ...->Emit (Todo)->Assemble (Todo)->Link (Todo)
+
+Interpreter path:
+* ...->Interpreter (Todo)
 
 All stages of the above two processes that are spelled the same, are indeed the same stages that are shared between the two processes.
 
@@ -24,8 +27,8 @@ As a quick side note, after getting around to writing the parser portion, I've d
 freaking sucks. There's no clear categories to the grammar, and although some non-terminals are comprised of a deterministic
 number of children, others are defined to be a messy expression of optional elements, and *or* expressions causing silly branching.
 
-One of the fun parts about writing compilers is how oftentimes the spec leaves to the developer certain implementation details.
-Besides adhering to ISO/IEC 7185:1990(E), here are the details about various parts of my compiler that are relevant to those who use it.
+One of the aspects of writing compilers is how oftentimes the spec leaves to the developer certain implementation details.
+Besides adhering to ISO/IEC 7185:1990(E), here are the details about various parts of my compiler that are relevant to those who use it. (See annex E).
 
 ## string-character
 
@@ -52,4 +55,4 @@ This may change in the future.
 ## compliance level
 
 The spec refers to level 0 and level 1 compliance. Level 0 does not include conformant-array-parameter, whereas level 1 does. This compiler
-is level 1 compliant, but these extra features can be disabled to cause the compiler to function only in a level 0 compliance state via [TODO].
+is level 1 compliant, but these extra features can be disabled to cause the compiler to function only in a level 0 compliance state via [probably a flag option, TODO].

@@ -31,5 +31,9 @@ namespace PascalCompiler.Parser
          OnlySkippableTokens = skippableTokens;
          Token = actualToken;
       }
+      public override string ToString()
+      {
+         return Token.ToString();
+      }
    }
 }
