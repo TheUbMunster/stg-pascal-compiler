@@ -124,5 +124,6 @@ namespace PascalCompiler.Lexer
       WHITESPACE = 65536, //not including cr or lf
       //needs to be higher than whsp
       LINEBREAK = 65537,
+      //EOF may be necessary to make an LR parser impl easier.
    }
 }

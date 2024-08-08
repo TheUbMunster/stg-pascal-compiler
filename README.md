@@ -18,7 +18,7 @@ Compiler path:
 Interpreter path:
 * ...->Interpreter (Todo)
 
-All stages of the above two processes that are spelled the same, are indeed the same stages that are shared between the two processes.
+The compiler and interpreter share the same precursory path ("Program flow").
 
 This compiler supports optimization flags (O0, O1, O2, O3). Not that any optimizations are particularly impressive, but simply
 proof that the code structure supports conditional optimization goals.
