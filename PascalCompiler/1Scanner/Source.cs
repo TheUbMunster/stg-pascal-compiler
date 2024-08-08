@@ -62,6 +62,23 @@ namespace PascalCompiler.Scanner
       public Source(string filePath)
       { //the caller *should* pass a fully qualified path
          Filename = Path.GetFileName(filePath);
+         //check file encoding
+         //just print a warning if not UTF8
+         Encoding? e = FileEncoding.GetFileEncoding(filePath);
+         if (e == Encoding.UTF8)
+         {
+            //ideal
+            AppendMessage(new(CompilerPhase.SourceScan, Severity.Pedantic, $"File {Filename} is encoded as [{Encoding.UTF8.EncodingName}], good!", null, false));
+         }
+         else if (e == null)
+         {
+            AppendMessage(new(CompilerPhase.SourceScan, Severity.Warning, $"File {Filename} is encoded as [{Encoding.ASCII.EncodingName}] or some unknown encoding. Compilation will be attempted, but may not succeed. UTF8 is the only officially supported encoding scheme.", null, false));
+         }
+         else
+         {
+            AppendMessage(new(CompilerPhase.SourceScan, Severity.Warning, $"File {Filename} is encoded as [{e.EncodingName}]. Compilation will be attempted, but may not succeed. UTF8 is the only officially supported encoding scheme.", null, false));
+         }
+         //scan for any/all illegal characters.
          string fileContent = File.ReadAllText(filePath);
          Parallel.For(0, fileContent.Length, (i) =>
          {
