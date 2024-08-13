@@ -158,7 +158,7 @@ namespace PascalCompiler
          //=======
          Parallel.For(0, sources.Count, (i) =>
          {
-            Parser.Parser.Parse(sources[i]);
+            NewParser.Parser.Parse(sources[i]);
          });
          foreach (Source s in sources)
          {
