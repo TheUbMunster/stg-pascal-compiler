@@ -1,4 +1,6 @@
-﻿using System;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;

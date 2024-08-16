@@ -1,4 +1,6 @@
-﻿using PascalCompiler.Parser;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using PascalCompiler.Parser;
 using System;
 using System.Collections.Generic;
 using System.Linq;

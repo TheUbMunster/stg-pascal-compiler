@@ -1,3 +1,5 @@
+//Copyright TheUbMunster, 2024, all rights reserved.
+
 using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
 

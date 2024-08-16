@@ -1,4 +1,6 @@
-﻿using PascalCompiler.Lexer;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using PascalCompiler.Lexer;
 using PascalCompiler.Scanner;
 using System;
 using System.Collections.Generic;
