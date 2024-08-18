@@ -35,7 +35,23 @@ namespace GLRParser
    /// </remarks>
    public class GLRParser
    {
+      public record class State(Stack<ASTNode> parseStack, Queue<ASTNode> inputStream);
+      public record class ASTNode(string name, string content, List<ASTNode> children);
       //note: whitespace-esq tokens should be before the astnode (i.e., the astnode consists of the
       //whitespace preceeding it, and then the children astnodes/terminals)
+
+      /// <summary>
+      /// Constructs a """GLALR""" parser obeying the grammar structure specified. To view the syntax
+      /// for this type of grammar, and some example definitions, see Grammar.cs in this project.
+      /// </summary>
+      public GLRParser(string[] grammar) 
+      {
+
+      }
+
+      public List<ASTNode> Parse(List<ASTNode> input)
+      {
+
+      }
    }
 }
