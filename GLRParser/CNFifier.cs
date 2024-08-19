@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 namespace GLRParser
@@ -16,6 +17,7 @@ namespace GLRParser
             Production res = new(lhs.Copy(), (GroupIngredient?)rhs?.Copy()); //type system makes me sad sometimes
             return res;
          }
+         public override string ToString() => Regex.Replace($"{lhs} = {rhs?.ToString() ?? ""} .", " +", " ");
       }
       private abstract record class Ingredient() //conceptually similar to a mathematical "term"
       {
@@ -28,6 +30,7 @@ namespace GLRParser
             ItemIngredient ii = new(nt?.Copy(), t?.Copy());
             return ii;
          }
+         public override string ToString() => (nt?.ToString() ?? t?.ToString())!;
       }
       private enum VariableIngredientType
       {
@@ -43,6 +46,20 @@ namespace GLRParser
             VariableIngredient vi = new(item.Copy(), groupType);
             return vi;
          }
+         public override string ToString()
+         {
+            switch (groupType)
+            {
+               case VariableIngredientType.UNDEFINED:
+                  throw new Exception();
+               case VariableIngredientType.ZeroOrOne:
+                  return $" [ {item} ] ";
+               case VariableIngredientType.ZeroOrMore:
+                  return $" {{ {item} }} ";
+               default:
+                  throw new Exception();
+            }
+         }
       }
       private record class GroupIngredient(List<Ingredient> ingredients) : Ingredient
       {
@@ -51,6 +68,7 @@ namespace GLRParser
             GroupIngredient gi = new(ingredients.Select(i => i.Copy()).ToList());
             return gi;
          }
+         public override string ToString() => ' ' + string.Join(' ', ingredients) + ' ';
       }
       private record class OrIngredient(Ingredient lhs, Ingredient rhs) : Ingredient
       {
@@ -59,14 +77,17 @@ namespace GLRParser
             OrIngredient oi = new(lhs.Copy(), rhs.Copy());
             return oi;
          }
+         public override string ToString() => $"( {lhs} | {rhs} )";
       }
-      private record class Nonterminal(string name)
+      private record class Nonterminal(string Name)
       {
-         public Nonterminal Copy() => new(name);
+         public Nonterminal Copy() => new(Name);
+         public override string ToString() => $" {Name} ";
       }
-      private record class Terminal(string name)
+      private record class Terminal(string Name)
       {
-         public Terminal Copy() => new(name);
+         public Terminal Copy() => new(Name);
+         public override string ToString() => $" '{Name}' ";
       }
       #endregion
 
@@ -105,12 +126,31 @@ namespace GLRParser
           *   'xyz' The terminal symbol xyz
           *   meta-identifier A nonterminal symbol
           */
+         List<Production> parsedGrammar = new List<Production>();
+
+         //TODO: convert grammar source into list of productions.
 
          //call in either of these orders:
          //?VARIABLE?,...,...,START,TERM,BIN,DEL,UNIT
          //?VARIABLE?,...,...,START,BIN,DEL,UNIT,TERM
          //a possible optimization would be to try multiple (valid) combinations, and pick the smallest
          //for now, I don't care.
+         bool needPreTransform = true;
+         while (needPreTransform)
+         {
+            //keep attempting to apply these transformations until it no longer does anything.
+            bool t = false;
+            t |= TransformGrammarVARIABLE(parsedGrammar);
+            t |= TransformGrammarEITHER(parsedGrammar);
+            t |= TransformGrammarOPTIONAL(parsedGrammar);
+            needPreTransform = t;
+         }
+         TransformGrammarSTART(parsedGrammar);
+         TransformGrammarTERM(parsedGrammar);
+         TransformGrammarBIN(parsedGrammar);
+         TransformGrammarDEL(parsedGrammar);
+         TransformGrammarUNIT(parsedGrammar);
+         CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
       }
 
       #region Utility
@@ -139,7 +179,8 @@ namespace GLRParser
 
       }
 
-      private void TransformGrammarVARIABLE(List<Production> intermediateGrammar)
+      //returns false if no transformation was made
+      private bool TransformGrammarVARIABLE(List<Production> intermediateGrammar)
       {
          //I'm not sure if this is foolproof, probably best to apply this FIRST
 
@@ -163,7 +204,8 @@ namespace GLRParser
           */
       }
 
-      private void TransformGrammarEITHER(List<Production> intermediateGrammar)
+      //returns false if no transformation was made
+      private bool TransformGrammarEITHER(List<Production> intermediateGrammar)
       {
          //given how casually defined A -> B | C <=> A -> B, A -> C seems to be, I think
          //this transformation is guaranteed to not conflict with anything. To be safe,
@@ -198,7 +240,8 @@ namespace GLRParser
           */
       }
 
-      private void TransformGrammarOPTIONAL(List<Production> intermediateGrammar)
+      //returns false if no transformation was made
+      private bool TransformGrammarOPTIONAL(List<Production> intermediateGrammar)
       {
          //PROBLEM!!!
          //in this situation:
@@ -255,34 +298,53 @@ namespace GLRParser
 
          bool FixOneOptional(Production prod, out Production? with, out Production? without)
          {
-            //breadth first search through the whole thing, resolve a single highest level thing,
-            //then repeat the process on the two children, on and on. If you call this function
-            //and there were no optionals to resolve, then return false, otherwise, true.
-            with = without = null;
-            if (prod.rhs != null) //this just checks one level. If the entire level fails, we need to recur on GroupIngredients at this level.
-               foreach (Ingredient i in prod.rhs.ingredients)
+            void RecurAddBFS(ref Queue<VariableIngredient> bingos, IEnumerable<Ingredient> ingredients)
+            {
+               List<GroupIngredient> gisTodo = new();
+               foreach (Ingredient i in ingredients)
                {
-                  switch(i)
+                  switch (i)
                   {
                      case VariableIngredient vi:
                         if (vi.groupType == VariableIngredientType.ZeroOrOne) //bingo
                         {
                            //we need to copy the entirety of "prod", re-navigate to this same spot, delete this variable ingredient,
                            //and replace this spot with "with" and "without"
-                           return true;
+                           bingos.Enqueue(vi);
                         }
                         break;
                      case GroupIngredient gi:
                         //add to a collection, then once this foreach is done, recur on all the gi's at this level.
+                        gisTodo.Add(gi);
                         break;
-                     case ItemIngredient ii:
+                     case ItemIngredient ii: //terminal or nonterminal, probably don't need to do anything.
                         break;
-                     case OrIngredient oi:
+                     case OrIngredient oi: //A | B, probably don't need to do anything.
                         break;
                      default:
                         throw new ArgumentException("Tried to switch on ingredient type, but ingredient type was missing");
                   }
                }
+               foreach (GroupIngredient gi in gisTodo)
+               {
+                  RecurAddBFS(ref bingos, gi.ingredients);
+               }
+            }
+            //breadth first search through the whole thing, resolve a single highest level thing,
+            //then repeat the process on the two children, on and on. If you call this function
+            //and there were no optionals to resolve, then return false, otherwise, true.
+            with = without = null;
+            if (prod.rhs != null) //this just checks one level. If the entire level fails, we need to recur on GroupIngredients at this level.
+            {
+               Queue<VariableIngredient> zeroOrOneVIs = new();
+               RecurAddBFS(ref zeroOrOneVIs, prod.rhs.ingredients);
+               if (zeroOrOneVIs.Count == 0)
+                  return false;
+               VariableIngredient chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+               //create two variants of this recipie, one with chosenVI.item taken the place of chosenVI, and one with nothing present.
+               //TODO
+               return true;
+            }
             else
                return false; //empty production.
          }
