@@ -46,9 +46,9 @@ namespace GLRParser
       /// Constructs a """GLALR""" parser obeying the grammar structure specified. To view the syntax
       /// for this type of grammar, and some example definitions, see Grammar.cs in this project.
       /// </summary>
-      public GLRParser(string[] grammar) 
+      public GLRParser(string[] grammar, string startingNonterminal) 
       {
-         CNFGrammar = new CNFifier(grammar);
+         CNFGrammar = new CNFifier(grammar, startingNonterminal);
       }
 
       public List<ASTNode> Parse(List<ASTNode> input)

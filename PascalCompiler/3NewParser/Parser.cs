@@ -51,7 +51,7 @@ namespace PascalCompiler.NewParser
          //   source.AddParserNode(node);
          //}
          //source.ParsingComplete();
-         GLRParser.GLRParser parser = new GLRParser.GLRParser(PascalGrammar.grammarSource);
+         GLRParser.GLRParser parser = new GLRParser.GLRParser(PascalGrammar.grammarSource, PascalGrammar.startingNonterminal);
       }
    }
 }

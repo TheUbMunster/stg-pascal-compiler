@@ -123,7 +123,6 @@ namespace PascalCompiler.Lexer
       }
       #endregion
 
-
       #region Fields
       private Source MySource { get; init; } = null!;
       public TokenType Type { get; private init; }

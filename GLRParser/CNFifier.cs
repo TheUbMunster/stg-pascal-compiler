@@ -70,7 +70,7 @@ namespace GLRParser
             GroupIngredient gi = new(ingredients.Select(i => i.Copy()).ToList());
             return gi;
          }
-         public override string ToString() => ' ' + string.Join(' ', ingredients) + ' ';
+         public override string ToString() => " ( " + string.Join(' ', ingredients) + " ) ";
       }
       private record class OrIngredient(Ingredient lhs, Ingredient rhs) : Ingredient
       {
@@ -99,9 +99,12 @@ namespace GLRParser
       /// Takes an input grammar adhering to the following rules: <br/><br/>
       /// 
       /// <b>
-      /// All non-terminals consist of [A-Za-z] (upon converting the grammar,
-      /// the output grammar may contain underscores (_) as well). All terminals
-      /// are encapsulated in single quotes "'".
+      /// All non-terminals consist of [A-Za-z-] (upon converting the grammar,
+      /// some of the non-terminals in the output grammar may contain underscores
+      /// (_) as well). All terminals are encapsulated in single quotes "'".
+      /// 
+      /// This CNFifier is designed to handle grammar adhering to the same rules
+      /// as the pascal specification.
       /// </b>
       /// <br/><br/>
       /// and returns an equivalent grammar in Chomsky Normal Form (CNF).
@@ -110,7 +113,7 @@ namespace GLRParser
       /// For use in a compiler, and designed to work with a lightly modified version of the 
       /// pascal grammar in mind. It's possible this has bugs, but it works for my purposes.
       /// </remarks>
-      public CNFifier(string[] grammarSource) 
+      public CNFifier(string[] grammarSource, string startingNonterminal) 
       {
          GrammarSource = grammarSource;
          //things of relevance:
@@ -132,26 +135,60 @@ namespace GLRParser
          List<Production> testGrammar = new List<Production>()
          {
             //A = 'qwe' [ ('rty' | 'fgh') ] 'uio' .
+            //new Production(
+            //   new Nonterminal("A"),
+            //   new GroupIngredient(new List<Ingredient>() 
+            //   {
+            //      new ItemIngredient(null, new Terminal("qwe")),
+            //      new VariableIngredient(
+            //         new OrIngredient(
+            //            new ItemIngredient(null, new Terminal("rty")),
+            //            new ItemIngredient(null, new Terminal("fgh"))
+            //         ), VariableIngredientType.ZeroOrOne),
+            //      new ItemIngredient(null, new Terminal("uio")),
+            //   })),
+
+            //B = 'asd' { ( C | 'jkl' ) } 'qwe' .
+            //new Production(
+            //   new Nonterminal("B"),
+            //   new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(null, new Terminal("asd")),
+            //      new VariableIngredient(
+            //         new OrIngredient(
+            //            new ItemIngredient(new Nonterminal("C"), null), 
+            //            new ItemIngredient(null, new Terminal("jkl"))), 
+            //         VariableIngredientType.ZeroOrMore),
+            //      new ItemIngredient(null, new Terminal("qwe"))
+            //   })),
+            //C = 'rty' 'aoe' .
+            //new Production(
+            //   new Nonterminal("C"),
+            //   new GroupIngredient( new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(null, new Terminal("rty")),
+            //      new ItemIngredient(null, new Terminal("aoe")),
+            //   })),
+
+            //A = B C D E F G H
             new Production(
                new Nonterminal("A"),
-               new GroupIngredient(new List<Ingredient>() 
+               new GroupIngredient(new List<Ingredient>()
                {
-                  new ItemIngredient(null, new Terminal("qwe")),
-                  new VariableIngredient(
-                     new OrIngredient(
-                        new ItemIngredient(null, new Terminal("rty")),
-                        new ItemIngredient(null, new Terminal("fgh"))
-                     ), VariableIngredientType.ZeroOrOne),
-                  new ItemIngredient(null, new Terminal("uio")),
+                  new ItemIngredient(new Nonterminal("B"), null),
+                  new ItemIngredient(new Nonterminal("C"), null),
+                  new ItemIngredient(new Nonterminal("D"), null),
+                  new ItemIngredient(new Nonterminal("E"), null),
+                  new ItemIngredient(new Nonterminal("F"), null),
+                  new ItemIngredient(new Nonterminal("G"), null),
+                  new ItemIngredient(new Nonterminal("H"), null),
                })),
-            new Production(
-               new Nonterminal("B"),
-               null)
          };
          List<Production> parsedGrammar = new List<Production>();
 
          //temp:
          parsedGrammar = testGrammar;
+         startingNonterminal = "A";
 
          //TODO: convert grammar source into list of productions.
 
@@ -170,30 +207,134 @@ namespace GLRParser
             t |= TransformGrammarOPTIONAL(parsedGrammar);
             needPreTransform = t;
          }
-         TransformGrammarSTART(parsedGrammar);
+         //at this point there should be no { }, [ ], or |
+         //probably need to flatten nested groups into a single top level group.
+         startingNonterminal = TransformGrammarSTART(parsedGrammar, startingNonterminal);
          TransformGrammarTERM(parsedGrammar);
          TransformGrammarBIN(parsedGrammar);
          TransformGrammarDEL(parsedGrammar);
          TransformGrammarUNIT(parsedGrammar);
+         bool success = true;
+         foreach (Production p in parsedGrammar)
+         { //check to make sure it meets the requirements of CNF
+            if (p.rhs == null)
+               success &= false;
+            else
+            {
+               int itemCount = p.rhs!.ingredients.Count;
+               if (itemCount == 1)
+               { //should be terminal
+                  ItemIngredient ii = (ItemIngredient)p.rhs!.ingredients[0];
+                  if (ii.t == null || ii.nt != null)
+                     success &= false;
+               }
+               else if (itemCount == 2)
+               { //should be two nonterminal
+                  ItemIngredient ii1 = (ItemIngredient)p.rhs!.ingredients[0];
+                  ItemIngredient ii2 = (ItemIngredient)p.rhs!.ingredients[1];
+                  if (ii1.t != null || ii1.nt == null)
+                     success &= false;
+                  if (ii2.t != null || ii2.nt == null)
+                     success &= false;
+               }
+            }
+         }
+         if (!success)
+            throw new Exception("Applied all CNFifier transformations, and yet output grammar was not CNF");
          CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
       }
 
       #region Utility
       #region Wikipedia transformations
       //see https://en.wikipedia.org/wiki/Chomsky_normal_form
-      private void TransformGrammarSTART(List<Production> intermediateGrammar)
+      private string TransformGrammarSTART(List<Production> intermediateGrammar, string oldStartSymbol)
       {
-
+         //ensure that the starting symbol does not appear on the right hand side of a recipie (by making a new start symbol)
+         string newNTName = CreateUniqueIngredientName();
+         intermediateGrammar.Add(new Production(new Nonterminal(newNTName),
+            new GroupIngredient(new List<Ingredient>()
+            {
+               new ItemIngredient(new Nonterminal(oldStartSymbol), null)
+            })));
+         return newNTName;
       }
 
       private void TransformGrammarTERM(List<Production> intermediateGrammar)
       {
-
+         //assume everything is in a single top level nested group.
+         int count = intermediateGrammar.Count;
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production p = intermediateGrammar[i];
+            if (p.rhs != null)
+               foreach (Ingredient ing in p.rhs!.ingredients)
+               {
+                  switch (ing)
+                  {
+                     case ItemIngredient ii:
+                        if (ii.t != null)
+                        {
+                           string newNTName = CreateUniqueIngredientName();
+                           Production np = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()
+                           {
+                              new ItemIngredient(null, ii.t)
+                           }));
+                           ItemIngredient replacement = new ItemIngredient(new Nonterminal(newNTName), null);
+                           int ind = p.rhs!.ingredients.IndexOf(ing);
+                           p.rhs!.ingredients.Remove(ing);
+                           p.rhs!.ingredients.Insert(ind, replacement);
+                        }
+                        break;
+                     default:
+                        throw new Exception("Error CNFifier expected a flattened list of terminals/nonterminals");
+                  }
+               }
+         }
       }
 
       private void TransformGrammarBIN(List<Production> intermediateGrammar)
       {
+         //A -> B C D E
+         //A -> B X1
+         //X1 -> C X2
+         //X2 -> D E
 
+         //all recipies at this point should be either 1. a single terminal, or 2. one or more nonterminals
+         //we want the recipies that have >= 3 nonterminals in the recipie
+         int count = intermediateGrammar.Count;
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production prod = intermediateGrammar[i];
+            if (prod.rhs != null)
+            {
+               ItemIngredient ee = (ItemIngredient)prod.rhs!.ingredients[0];
+               int ingCount = prod.rhs!.ingredients.Count;
+               if (ee.nt != null && ingCount >= 3)
+               {
+                  intermediateGrammar.RemoveAt(i);
+                  string[] newNTNames = new string[ingCount - 2];
+                  for (int j = 0; j < newNTNames.Length; j++)
+                     newNTNames[j] = CreateUniqueIngredientName();
+                  List<ItemIngredient> iis = prod.rhs!.ingredients.Select(x => (ItemIngredient)x).ToList();
+                  Nonterminal ognt = prod.lhs;
+                  for (int c = 0; c < ingCount - 1; c++)
+                  {
+                     Nonterminal recipNT;
+                     if (c == 0)
+                        recipNT = ognt;
+                     else
+                        recipNT = new Nonterminal(newNTNames[c - 1]);
+                     ItemIngredient left = iis[c];
+                     ItemIngredient right;
+                     if (c == ingCount - 2)
+                        right = iis[c + 1];
+                     else
+                        right = new ItemIngredient(new Nonterminal(newNTNames[c]), null);
+                     intermediateGrammar.Add(new Production(recipNT, new GroupIngredient(new List<Ingredient>() { left, right })));
+                  }
+               }
+            }
+         }
       }
 
       private void TransformGrammarDEL(List<Production> intermediateGrammar)
@@ -203,7 +344,18 @@ namespace GLRParser
 
       private void TransformGrammarUNIT(List<Production> intermediateGrammar)
       {
+         //given
+         //A -> B
+         //B -> ...
+         //B -> ...
+         //B -> ...
+         //B -> ...
 
+         //remove A -> B and replace others with
+         //A -> ...
+         //A -> ...
+         //A -> ...
+         //A -> ...
       }
       #endregion
 
@@ -615,7 +767,7 @@ namespace GLRParser
 
          //at the very end
          uniqueIngredientCounter++;
-         return res.ToString();
+         return '_' + res.ToString();
       }
       #endregion
    }
