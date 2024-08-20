@@ -213,7 +213,7 @@ namespace GLRParser
          TransformGrammarTERM(parsedGrammar);
          TransformGrammarBIN(parsedGrammar);
          TransformGrammarDEL(parsedGrammar);
-         TransformGrammarUNIT(parsedGrammar);
+         TransformGrammarUNIT(parsedGrammar); //even if this messes with the starting recipie, the startingNonterminal won't change.
          bool success = true;
          foreach (Production p in parsedGrammar)
          { //check to make sure it meets the requirements of CNF
@@ -356,6 +356,22 @@ namespace GLRParser
          //A -> ...
          //A -> ...
          //A -> ...
+         int count = intermediateGrammar.Count;
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production prod = intermediateGrammar[i];
+            ItemIngredient rhs = ((ItemIngredient)prod.rhs!.ingredients[0]);
+            if (prod.rhs != null && prod.rhs!.ingredients.Count == 1 && rhs.nt != null)
+            { //this is a nonterminal -> nonterminal production
+               int ind = intermediateGrammar.IndexOf(prod);
+               intermediateGrammar.RemoveAt(ind); //remove A -> B
+
+               int ccount = intermediateGrammar.Count;
+               for (int j = ccount - 1; j >= 0; j--) //turn all B -> ... to A -> ...
+                  if (intermediateGrammar[j].lhs.Name == rhs.nt!.Name)
+                     intermediateGrammar[j] = new Production(prod.lhs, intermediateGrammar[j].rhs);
+            }
+         }
       }
       #endregion
 
