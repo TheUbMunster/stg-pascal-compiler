@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using GLRParser;
 using PascalCompiler.Scanner;
 
 namespace PascalCompiler.NewParser
@@ -50,6 +51,7 @@ namespace PascalCompiler.NewParser
          //   source.AddParserNode(node);
          //}
          //source.ParsingComplete();
+         GLRParser.GLRParser parser = new GLRParser.GLRParser(PascalGrammar.grammarSource);
       }
    }
 }

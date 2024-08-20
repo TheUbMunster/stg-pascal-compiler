@@ -13,7 +13,7 @@ namespace AnnexAQuery
       {
          {
             int ind = 0;
-            foreach (string s in Grammar.fullGrammarSource)
+            foreach (string s in PascalGrammar.fullGrammarSource)
             {
                var mm = matchDef.Matches(s);
                if (mm.Count > 1)
@@ -27,7 +27,7 @@ namespace AnnexAQuery
          }
          {
             int ind = 0;
-            foreach (string s in Grammar.fullGrammarSource)
+            foreach (string s in PascalGrammar.fullGrammarSource)
             {
                var mm = matchNonTerminalNonDef.Matches(s);
                foreach (string assoc in mm.Select(x => x.Value).Distinct())
@@ -98,7 +98,7 @@ namespace AnnexAQuery
             }
             Console.WriteLine("DEFINITION:");
             Console.ForegroundColor = ConsoleColor.Yellow;
-            Console.WriteLine(Grammar.fullGrammarSource[data[choice].defIndex]);
+            Console.WriteLine(PascalGrammar.fullGrammarSource[data[choice].defIndex]);
             Console.ForegroundColor = ConsoleColor.White;
             for (int i = 0; i < data[choice].mentionsIndices.Count; i++)
             {
@@ -110,7 +110,7 @@ namespace AnnexAQuery
                else
                {
                   Console.ForegroundColor = ConsoleColor.Yellow;
-                  Console.WriteLine(Grammar.fullGrammarSource[data[choice].mentionsIndices[i]]);
+                  Console.WriteLine(PascalGrammar.fullGrammarSource[data[choice].mentionsIndices[i]]);
                   Console.ForegroundColor = ConsoleColor.White;
                }
             }

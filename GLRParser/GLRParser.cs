@@ -40,18 +40,20 @@ namespace GLRParser
       //note: whitespace-esq tokens should be before the astnode (i.e., the astnode consists of the
       //whitespace preceeding it, and then the children astnodes/terminals)
 
+      CNFifier CNFGrammar { get; }
+
       /// <summary>
       /// Constructs a """GLALR""" parser obeying the grammar structure specified. To view the syntax
       /// for this type of grammar, and some example definitions, see Grammar.cs in this project.
       /// </summary>
       public GLRParser(string[] grammar) 
       {
-
+         CNFGrammar = new CNFifier(grammar);
       }
 
       public List<ASTNode> Parse(List<ASTNode> input)
       {
-
+         throw new NotImplementedException();
       }
    }
 }

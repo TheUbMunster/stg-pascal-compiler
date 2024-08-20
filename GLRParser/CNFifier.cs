@@ -1,4 +1,6 @@
-﻿using System;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -17,7 +19,7 @@ namespace GLRParser
             Production res = new(lhs.Copy(), (GroupIngredient?)rhs?.Copy()); //type system makes me sad sometimes
             return res;
          }
-         public override string ToString() => Regex.Replace($"{lhs} = {rhs?.ToString() ?? ""} .", " +", " ");
+         public override string ToString() => Regex.Replace($"{lhs} = {rhs?.ToString() ?? ""} .", " +", " ").Trim();
       }
       private abstract record class Ingredient() //conceptually similar to a mathematical "term"
       {
@@ -97,8 +99,9 @@ namespace GLRParser
       /// Takes an input grammar adhering to the following rules: <br/><br/>
       /// 
       /// <b>
-      /// All terminals and non-terminals consist of [A-Za-z] (upon converting the grammar,
-      /// the output grammar may contain underscores (_) as well).
+      /// All non-terminals consist of [A-Za-z] (upon converting the grammar,
+      /// the output grammar may contain underscores (_) as well). All terminals
+      /// are encapsulated in single quotes "'".
       /// </b>
       /// <br/><br/>
       /// and returns an equivalent grammar in Chomsky Normal Form (CNF).
@@ -126,7 +129,29 @@ namespace GLRParser
           *   'xyz' The terminal symbol xyz
           *   meta-identifier A nonterminal symbol
           */
+         List<Production> testGrammar = new List<Production>()
+         {
+            //A = 'qwe' [ ('rty' | 'fgh') ] 'uio' .
+            new Production(
+               new Nonterminal("A"),
+               new GroupIngredient(new List<Ingredient>() 
+               {
+                  new ItemIngredient(null, new Terminal("qwe")),
+                  new VariableIngredient(
+                     new OrIngredient(
+                        new ItemIngredient(null, new Terminal("rty")),
+                        new ItemIngredient(null, new Terminal("fgh"))
+                     ), VariableIngredientType.ZeroOrOne),
+                  new ItemIngredient(null, new Terminal("uio")),
+               })),
+            new Production(
+               new Nonterminal("B"),
+               null)
+         };
          List<Production> parsedGrammar = new List<Production>();
+
+         //temp:
+         parsedGrammar = testGrammar;
 
          //TODO: convert grammar source into list of productions.
 
@@ -154,6 +179,8 @@ namespace GLRParser
       }
 
       #region Utility
+      #region Wikipedia transformations
+      //see https://en.wikipedia.org/wiki/Chomsky_normal_form
       private void TransformGrammarSTART(List<Production> intermediateGrammar)
       {
 
@@ -178,7 +205,9 @@ namespace GLRParser
       {
 
       }
+      #endregion
 
+      #region Special transformations
       //returns false if no transformation was made
       private bool TransformGrammarVARIABLE(List<Production> intermediateGrammar)
       {
@@ -186,14 +215,19 @@ namespace GLRParser
 
          //Example of "0 or more to CNF-able"
          /* Note: { } indicates 0 or more of what's contained within
-          * A -> { B }
+          * A -> asd { B } jkl
           * 
           * to:
           * 
           * A -> ZZ | eZ | Ze | e
-          * Z -> ZZ | eZ | Ze | e
+          * Z -> ZZ | eZ | Ze | e (delete Z -> eZ | Ze because it's idempotent)
           * Z -> e (delete this one since it's been implemented at all call sites)
           *        (it's kept here for posterity)
+          * Z -> B
+          * 
+          * cleaned:
+          * A -> asd Z jkl | asd e jkl
+          * Z -> ZZ
           * Z -> B
           *
           * Note that since A meets the requirements for "nullable", all call sites for A need
@@ -202,6 +236,85 @@ namespace GLRParser
           * if some recipie Q -> AR exists, then we need to create an extra recipie (alongside the original):
           * Q -> R (with A omitted).
           */
+         #region Helpers
+         bool FixOneVariable(Production prod, out Production? partA, out Production? partB, out Production? partC, out Production? partD)
+         {
+            //breadth first search through the whole thing, resolve a single highest level thing,
+            //then repeat the process on the two children, on and on. If you call this function
+            //and there were no optionals to resolve, then return false, otherwise, true.
+            partA = partB = partC = partD = null;
+            if (prod.rhs != null) //this just checks one level. If the entire level fails, we need to recur on GroupIngredients at this level.
+            {
+               string newNTName = CreateUniqueIngredientName();
+               Production potentialModifiedOriginalWith = prod.Copy(),
+                  potentialModifiedOriginalWithout = prod.Copy(),
+                  potentialPartC = 
+                  new Production(new Nonterminal(newNTName), 
+                     new GroupIngredient(new List<Ingredient>() 
+                     {
+                        new ItemIngredient(new Nonterminal(newNTName), null),
+                        new ItemIngredient(new Nonterminal(newNTName), null) 
+                     })
+                  ),
+                  potentialPartD = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()));
+               //extract { B }, stick it in potentialPartC, remove it from potentialModifiedOriginal
+               { //WITH Z
+                  Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
+                  RecurAddBFS(ref zeroOrOneVIs, potentialModifiedOriginalWith.rhs!, BFSGoals.VIRepeat);
+                  if (zeroOrOneVIs.Count == 0)
+                     return false;
+                  var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+
+                  int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Insert(ind, new ItemIngredient(new Nonterminal(newNTName), null));
+                  partA = potentialModifiedOriginalWith;
+               }
+               { //WITHOUT Z
+                  Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
+                  RecurAddBFS(ref zeroOrOneVIs, potentialModifiedOriginalWithout.rhs!, BFSGoals.VIRepeat);
+                  var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+
+                  int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
+                  partB = potentialModifiedOriginalWithout;
+                  potentialPartD.rhs!.ingredients.Add(((VariableIngredient)chosenVI.inQuestion).item);
+               }
+               partC = potentialPartC;
+               partD = potentialPartD;
+               return true;
+            }
+            else
+               return false; //empty production.
+         }
+         #endregion
+
+         bool anythingChanged = false; //true if >= 1 transformation occurred.
+         int count = intermediateGrammar.Count; //the list will re-grow as we transform, but we want to iter based on the original count.
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production c = intermediateGrammar[i];
+            intermediateGrammar.RemoveAt(i);
+            List<Production> currents = [c];
+            //as we repeatedly call FixOneOptional on this, if it returns false, then add to
+            //intermediateGrammar instead of currents.
+            while (currents.Count > 0)
+            {
+               Production cc = currents[0];
+               currents.RemoveAt(0);
+               if (FixOneVariable(cc, out Production? partA, out Production? partB, out Production? partC, out Production? partD))
+               {
+                  currents.Add(partA!);
+                  currents.Add(partB!);
+                  currents.Add(partC!);
+                  currents.Add(partD!);
+                  anythingChanged |= true;
+               }
+               else
+                  intermediateGrammar.Add(cc);
+            }
+         }
+         return anythingChanged;
       }
 
       //returns false if no transformation was made
@@ -238,6 +351,73 @@ namespace GLRParser
           * 
           * Note that ((A | B) | C) = (A | (B | C)) = (A | B | C)
           */
+         #region Helpers
+         bool FixOneEither(Production prod, out Production? withLeft, out Production? withRight)
+         {
+            //breadth first search through the whole thing, resolve a single highest level thing,
+            //then repeat the process on the two children, on and on. If you call this function
+            //and there were no optionals to resolve, then return false, otherwise, true.
+            withLeft = withRight = null;
+            if (prod.rhs != null) //this just checks one level. If the entire level fails, we need to recur on GroupIngredients at this level.
+            {
+               Production potentialWithLeft = prod.Copy(), potentialWithRight = prod.Copy();
+               //create two variants of this recipie, one with chosenVI.item taken the place of chosenVI,
+               //and one with nothing present.
+               { //WITH left
+                  Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
+                  RecurAddBFS(ref zeroOrOneVIs, potentialWithLeft.rhs!, BFSGoals.OrIngr);
+                  if (zeroOrOneVIs.Count == 0)
+                     return false;
+                  var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+
+                  int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Insert(ind, ((OrIngredient)chosenVI.inQuestion).lhs);
+                  withLeft = potentialWithLeft;
+               }
+               { //WITH right
+                  Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
+                  RecurAddBFS(ref zeroOrOneVIs, potentialWithRight.rhs!, BFSGoals.OrIngr);
+                  if (zeroOrOneVIs.Count == 0)
+                     return false;
+                  var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+
+                  int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Insert(ind, ((OrIngredient)chosenVI.inQuestion).rhs);
+                  withRight = potentialWithRight;
+               }
+               return true;
+            }
+            else
+               return false; //empty production.
+         }
+         #endregion
+
+         bool anythingChanged = false; //true if >= 1 transformation occurred.
+         int count = intermediateGrammar.Count; //the list will re-grow as we transform, but we want to iter based on the original count.
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production c = intermediateGrammar[i];
+            intermediateGrammar.RemoveAt(i);
+            List<Production> currents = [c];
+            //as we repeatedly call FixOneOptional on this, if it returns false, then add to
+            //intermediateGrammar instead of currents.
+            while (currents.Count > 0)
+            {
+               Production cc = currents[0];
+               currents.RemoveAt(0);
+               if (FixOneEither(cc, out Production? withLeft, out Production? withRight))
+               {
+                  currents.Add(withLeft!);
+                  currents.Add(withRight!);
+                  anythingChanged |= true;
+               }
+               else
+                  intermediateGrammar.Add(cc);
+            }
+         }
+         return anythingChanged;
       }
 
       //returns false if no transformation was made
@@ -296,65 +476,51 @@ namespace GLRParser
           * A -> e   (empty string to be removed by TransformGrammarDEL) 
           */
 
+         #region Helpers
          bool FixOneOptional(Production prod, out Production? with, out Production? without)
          {
-            void RecurAddBFS(ref Queue<VariableIngredient> bingos, IEnumerable<Ingredient> ingredients)
-            {
-               List<GroupIngredient> gisTodo = new();
-               foreach (Ingredient i in ingredients)
-               {
-                  switch (i)
-                  {
-                     case VariableIngredient vi:
-                        if (vi.groupType == VariableIngredientType.ZeroOrOne) //bingo
-                        {
-                           //we need to copy the entirety of "prod", re-navigate to this same spot, delete this variable ingredient,
-                           //and replace this spot with "with" and "without"
-                           bingos.Enqueue(vi);
-                        }
-                        break;
-                     case GroupIngredient gi:
-                        //add to a collection, then once this foreach is done, recur on all the gi's at this level.
-                        gisTodo.Add(gi);
-                        break;
-                     case ItemIngredient ii: //terminal or nonterminal, probably don't need to do anything.
-                        break;
-                     case OrIngredient oi: //A | B, probably don't need to do anything.
-                        break;
-                     default:
-                        throw new ArgumentException("Tried to switch on ingredient type, but ingredient type was missing");
-                  }
-               }
-               foreach (GroupIngredient gi in gisTodo)
-               {
-                  RecurAddBFS(ref bingos, gi.ingredients);
-               }
-            }
             //breadth first search through the whole thing, resolve a single highest level thing,
             //then repeat the process on the two children, on and on. If you call this function
             //and there were no optionals to resolve, then return false, otherwise, true.
             with = without = null;
             if (prod.rhs != null) //this just checks one level. If the entire level fails, we need to recur on GroupIngredients at this level.
             {
-               Queue<VariableIngredient> zeroOrOneVIs = new();
-               RecurAddBFS(ref zeroOrOneVIs, prod.rhs.ingredients);
-               if (zeroOrOneVIs.Count == 0)
-                  return false;
-               VariableIngredient chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
-               //create two variants of this recipie, one with chosenVI.item taken the place of chosenVI, and one with nothing present.
-               //TODO
+               Production potentialWith = prod.Copy(), potentialWithout = prod.Copy();
+               //create two variants of this recipie, one with chosenVI.item taken the place of chosenVI,
+               //and one with nothing present.
+               { //WITH
+                  Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
+                  RecurAddBFS(ref zeroOrOneVIs, potentialWith.rhs!, BFSGoals.VIOptional);
+                  if (zeroOrOneVIs.Count == 0)
+                     return false;
+                  var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+                  int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
+                  chosenVI.parent.ingredients.Insert(ind, ((VariableIngredient)chosenVI.inQuestion).item);
+                  with = potentialWith;
+               }
+               { //WITHOUT
+                  Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
+                  RecurAddBFS(ref zeroOrOneVIs, potentialWithout.rhs!, BFSGoals.VIOptional);
+                  //if we didn't return in the "with" due to zerOrOneVIs == 0, then we won't here either (omit check).
+                  var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
+                  chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
+                  without = potentialWithout;
+               }
                return true;
             }
             else
                return false; //empty production.
          }
-         int count = intermediateGrammar.Count; //the list will re-grow
-         for (int i = count; i >= 0; i--)
+         #endregion
+
+         bool anythingChanged = false; //true if >= 1 transformation occurred.
+         int count = intermediateGrammar.Count; //the list will re-grow as we transform, but we want to iter based on the original count.
+         for (int i = count - 1; i >= 0; i--)
          {
             Production c = intermediateGrammar[i];
             intermediateGrammar.RemoveAt(i);
-            List<Production> currents = new List<Production>();
-            currents.Add(c);
+            List<Production> currents = [c];
             //as we repeatedly call FixOneOptional on this, if it returns false, then add to
             //intermediateGrammar instead of currents.
             while (currents.Count > 0)
@@ -365,15 +531,92 @@ namespace GLRParser
                {
                   currents.Add(with!);
                   currents.Add(without!);
+                  anythingChanged |= true;
                }
                else
                   intermediateGrammar.Add(cc);
             }
          }
+         return anythingChanged;
       }
+      #endregion
+
+      #region Helper helpers
+      enum BFSGoals
+      {
+         VIOptional,
+         VIRepeat,
+         OrIngr
+      }
+      void RecurAddBFS(ref Queue<(GroupIngredient parent, Ingredient inQuestion)> col, GroupIngredient pgi, BFSGoals goal)
+      {
+         List<GroupIngredient> gisTodo = new();
+         foreach (Ingredient i in pgi.ingredients)
+         {
+            switch (i)
+            {
+               case VariableIngredient vi:
+                  if (vi.groupType == VariableIngredientType.ZeroOrOne && goal == BFSGoals.VIOptional) //bingo
+                  {
+                     //we need to copy the entirety of "prod", re-navigate to this same spot, delete this variable ingredient,
+                     //and replace this spot with "with" and "without"
+                     col.Enqueue((pgi, vi));
+                  }
+                  if (vi.groupType == VariableIngredientType.ZeroOrMore && goal == BFSGoals.VIRepeat)
+                  {
+                     col.Enqueue((pgi, vi));
+                  }
+                  break;
+               case GroupIngredient gi:
+                  //add to a collection, then once this foreach is done, recur on all the gi's at this level.
+                  gisTodo.Add(gi);
+                  break;
+               case ItemIngredient ii: //terminal or nonterminal, probably don't need to do anything.
+                  break;
+               case OrIngredient oi: //A | B, probably don't need to do anything.
+                  if (goal == BFSGoals.OrIngr)
+                  {
+                     col.Enqueue((pgi, oi));
+                  }
+                  break;
+               default:
+                  throw new ArgumentException("Tried to switch on ingredient type, but ingredient type was missing");
+            }
+         }
+         foreach (GroupIngredient gi in gisTodo)
+         {
+            RecurAddBFS(ref col, gi, goal);
+         }
+      }
+      #endregion
 
       private ulong uniqueIngredientCounter = 0;
-      private string CreateUniqueIngredientName() => $"_{uniqueIngredientCounter++}";
+      //numbers:
+      //private string CreateUniqueIngredientName() => $"_{uniqueIngredientCounter++}";
+      //letters:
+      private string CreateUniqueIngredientName()
+      {
+         StringBuilder res = new();
+         //see https://stackoverflow.com/questions/923771/quickest-way-to-convert-a-base-10-number-to-any-base-in-net
+         //hexavigesimal
+
+         //note: 'a' is '0', meaning it goes: "w x y z ba bb bc bd"... skipping "aa" because "aa" = "00" = "a" = "0".
+         //similarly, it goes "zw zx zy zz baa bab bac bad"...
+
+         char[] baseChars = Enumerable.Range('a', 26).Select(x => (char)x).ToArray();
+         ulong targetBase = (ulong)baseChars.Length;
+         ulong value = uniqueIngredientCounter;
+         do
+         {
+            res.Insert(0, baseChars[value % targetBase]);
+            value = value / targetBase;
+         }
+         while (value > 0);
+
+         //at the very end
+         uniqueIngredientCounter++;
+         return res.ToString();
+      }
       #endregion
    }
 }
