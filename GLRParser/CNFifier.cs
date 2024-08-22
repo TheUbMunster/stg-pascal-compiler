@@ -12,6 +12,25 @@ namespace GLRParser
    internal class CNFifier
    {
       #region Typedefs
+      //refine this concept?
+      //private enum GrammarGuarantees
+      //{
+      //   NoDuplicateEntries = 1,
+      //   AllRecipiesContainingTerminalsAreJustOneTerminal = 2,
+      //   AllRecipiesHaveTwoOrLessIngredients = 4,
+      //   AllRecipiesThatArentASingleTerminalHaveTwoNonterminals = 8,
+      //   NoCurlySquareOrOrs = 16,
+      //}
+
+      //Nomenclature:
+      /* Production: a parsed representation of a single grammar entry
+       * Recipie: the right hand side of a production (what the LHS nonterminal is "made of")
+       * Nonterminal: an abstract grammar item that is "made of" other things
+       * Terminal: a non-abstract grammar item that represents a lexem (is not "made of" other things; concrete)
+       * Ingredient: anything in the recipie.
+       * GroupIngredient: an ingredient made of other ingredients
+       * ...
+       */
       private record class Production(Nonterminal lhs, GroupIngredient rhs) // if rhs.ingredients.Coutn == 0, then it's an A -> epsilon (empty) recipie.
       { //value equality should be sufficient.
          public Production Copy()
@@ -19,6 +38,7 @@ namespace GLRParser
             Production res = new(lhs.Copy(), (GroupIngredient)rhs.Copy()); //type system makes me sad sometimes
             return res;
          }
+         //this is heavy but probably not used for non-debug purposes.
          public override string ToString() => Regex.Replace($"{lhs} = {rhs?.ToString() ?? ""} .", " +", " ").Trim();
       }
       private abstract record class Ingredient() //conceptually similar to a mathematical "term"
@@ -65,24 +85,15 @@ namespace GLRParser
       }
       private record class GroupIngredient(List<Ingredient> ingredients) : Ingredient
       {
-         //impl of list that uses SequenceEquals for equality, but this sucks.
-         //public class SEList<T> : List<T>
-         //{
-         //   public override bool Equals(object? obj)
-         //   {
-         //      return base.Equals(obj);
-         //   }
-         //   public override int GetHashCode() => base.GetHashCode();
-         //   public static implicit operator List<T>(SEList<T> cast)
-         //   {
-
-         //   }
-         //}
          public override Ingredient Copy()
          {
             GroupIngredient gi = new(ingredients.Select(i => i.Copy()).ToList());
             return gi;
          }
+         /// <summary>
+         /// Should only be read when otherwise sure that this group is *items only*.
+         /// </summary>
+         public IEnumerable<ItemIngredient> ingredientsAsItems { get => ingredients.Select(x => (x as ItemIngredient)!); }
          public override string ToString() => " ( " + string.Join(' ', ingredients) + " ) ";
          public virtual bool Equals(GroupIngredient? other)
          {
@@ -101,12 +112,12 @@ namespace GLRParser
          }
          public override string ToString() => $"( {lhs} | {rhs} )";
       }
-      private record class Nonterminal(string Name)
+      private record class Nonterminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
       { //value equality should be sufficient.
          public Nonterminal Copy() => new(Name);
          public override string ToString() => $" {Name} ";
       }
-      private record class Terminal(string Name)
+      private record class Terminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
       { //value equality should be sufficient.
          public Terminal Copy() => new(Name);
          public override string ToString() => $" '{Name}' ";
@@ -114,14 +125,19 @@ namespace GLRParser
       #endregion
 
       public string[] GrammarSource { get; }
+      public string StartingNonterminal { get; }
       public string[] CNFGrammarSource { get; }
+      public string CNFStartingNonterminal { get; }
       /// <summary>
       /// Takes an input grammar adhering to the following rules: <br/><br/>
       /// 
       /// <b>
-      /// All non-terminals consist of [A-Za-z-] (upon converting the grammar,
+      /// * All non-terminals consist of [A-Za-z-] (upon converting the grammar,
       /// some of the non-terminals in the output grammar may contain underscores
-      /// (_) as well). All terminals are encapsulated in single quotes "'".
+      /// (_) as well).<br/>
+      /// * All terminals are encapsulated in single quotes "'".<br/>
+      /// * All terminals that contain a literal single quote must be escaped with a
+      /// backslash. (e.g., "'\''"). <br/><br/>
       /// 
       /// This CNFifier is designed to handle grammar adhering to the same rules
       /// as the pascal specification.
@@ -130,12 +146,13 @@ namespace GLRParser
       /// and returns an equivalent grammar in Chomsky Normal Form (CNF).
       /// </summary>
       /// <remarks>
-      /// For use in a compiler, and designed to work with a lightly modified version of the 
+      /// Intended for use in a compiler, and designed to work with a lightly modified version of the 
       /// pascal grammar in mind. It's possible this has bugs, but it works for my purposes.
       /// </remarks>
       public CNFifier(string[] grammarSource, string startingNonterminal) 
       {
          GrammarSource = grammarSource;
+         StartingNonterminal = startingNonterminal;
          //things of relevance:
          //https://en.wikipedia.org/wiki/Chomsky_normal_form
          //https://cs.stackexchange.com/questions/18052/rules-regarding-chomsky-normal-form-cnf-grammars
@@ -152,6 +169,8 @@ namespace GLRParser
           *   'xyz' The terminal symbol xyz
           *   meta-identifier A nonterminal symbol
           */
+         //Regex eqToken = new Regex("[A-Za-z-]+\\s*(=)", RegexOptions.Compiled);
+
          List<Production> testGrammar = new List<Production>()
          {
             //A = 'qwe' [ ('rty' | 'fgh') ] 'uio' .
@@ -203,6 +222,50 @@ namespace GLRParser
             //      new ItemIngredient(new Nonterminal("G"), null),
             //      new ItemIngredient(new Nonterminal("H"), null),
             //   })),
+
+            /*S0 → AbB | C
+               B → AA | AC
+               C → b | c
+               A → a | ε
+            */
+            new Production(new Nonterminal("S"), new GroupIngredient(new List<Ingredient>()
+            {
+               new OrIngredient(new GroupIngredient(new List<Ingredient>()
+               {
+                  new ItemIngredient(new Nonterminal("A"), null),
+                  new ItemIngredient(null, new Terminal("b")),
+                  new ItemIngredient(new Nonterminal("B"), null),
+               }), new ItemIngredient(new Nonterminal("C"), null))
+            })),
+            new Production(new Nonterminal("B"), new GroupIngredient(new List<Ingredient>()
+            {
+               new OrIngredient(new GroupIngredient(new List<Ingredient>()
+               {
+                  new ItemIngredient(new Nonterminal("A"), null),
+                  new ItemIngredient(new Nonterminal("A"), null),
+               }), new GroupIngredient(new List<Ingredient>()
+               {
+                  new ItemIngredient(new Nonterminal("A"), null),
+                  new ItemIngredient(new Nonterminal("C"), null),
+               }))
+            })),
+            new Production(new Nonterminal("C"), new GroupIngredient(new List<Ingredient>()
+            {
+               new OrIngredient(new GroupIngredient(new List<Ingredient>()
+               {
+                  new ItemIngredient(null, new Terminal("b")),
+               }), new GroupIngredient(new List<Ingredient>()
+               {
+                  new ItemIngredient(null, new Terminal("c")),
+               }))
+            })),
+            new Production(new Nonterminal("A"), new GroupIngredient(new List<Ingredient>()
+            {
+               new OrIngredient(new GroupIngredient(new List<Ingredient>()
+               {
+                  new ItemIngredient(null, new Terminal("a")),
+               }), new GroupIngredient(new List<Ingredient>()))
+            })),
          };
          List<Production> parsedGrammar = new List<Production>();
 
@@ -210,8 +273,8 @@ namespace GLRParser
          //bool eq = ((Ingredient)new GroupIngredient(new List<Ingredient>() { new ItemIngredient(null, null) })).Equals(((Ingredient)new GroupIngredient(new List<Ingredient>() { new ItemIngredient(null, null) }))); //true
 
          //temp:
-         //parsedGrammar = testGrammar;
-         //startingNonterminal = "A";
+         parsedGrammar = testGrammar;
+         startingNonterminal = "S";
 
          //TODO: convert grammar source into list of productions.
 
@@ -234,16 +297,20 @@ namespace GLRParser
          }
          //at this point there should be no { }, [ ], or |
          //probably need to flatten nested groups into a single top level group.
-         startingNonterminal = TransformGrammarSTART(parsedGrammar, startingNonterminal);
+         SimplifySinglyGroups(parsedGrammar);
+         CNFStartingNonterminal = startingNonterminal = TransformGrammarSTART(parsedGrammar, startingNonterminal);
          TransformGrammarTERM(parsedGrammar);
          TransformGrammarBIN(parsedGrammar);
          TransformGrammarDEL(parsedGrammar);
+         //there is an error somewhere from this point forward
          TransformGrammarUNIT(parsedGrammar); //even if this messes with the starting recipie, the startingNonterminal won't change.
          RemoveDuplicates(parsedGrammar); //just in case (if this ever finds any duplicates, maybe investigate if one of the transformations has a bug causing it).
-         bool success = AdheresToCNF(parsedGrammar);
+         SortLexicographically(parsedGrammar);
+         bool success = CheckAdheresToCNF(parsedGrammar);
          if (!success)
             throw new Exception("Applied all CNFifier transformations, and yet output grammar was not CNF");
          CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
+         List<Production> ord = OrdGrammarRepresentation(parsedGrammar); //needs testing
       }
 
       #region Utility
@@ -268,29 +335,31 @@ namespace GLRParser
          for (int i = count - 1; i >= 0; i--)
          {
             Production p = intermediateGrammar[i];
-            if (p.rhs != null)
-               foreach (Ingredient ing in p.rhs!.ingredients)
+            int ingCount = p.rhs.ingredients.Count;
+            for (int j = ingCount - 1; j >= 0; j--)
+            {
+               Ingredient ing = p.rhs.ingredients[j];
+               switch (ing)
                {
-                  switch (ing)
-                  {
-                     case ItemIngredient ii:
-                        if (ii.t != null)
+                  case ItemIngredient ii:
+                     if (ii.t != null && ingCount > 1) //we have a terminal, and this recipie has more than one ingredient.
+                     {
+                        string newNTName = CreateUniqueIngredientName();
+                        Production np = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()
                         {
-                           string newNTName = CreateUniqueIngredientName();
-                           Production np = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()
-                           {
-                              new ItemIngredient(null, ii.t)
-                           }));
-                           ItemIngredient replacement = new ItemIngredient(new Nonterminal(newNTName), null);
-                           int ind = p.rhs!.ingredients.IndexOf(ing);
-                           p.rhs!.ingredients.Remove(ing);
-                           p.rhs!.ingredients.Insert(ind, replacement);
-                        }
-                        break;
-                     default:
-                        throw new Exception("Error CNFifier expected a flattened list of terminals/nonterminals");
-                  }
+                           new ItemIngredient(null, ii.t)
+                        }));
+                        ItemIngredient replacement = new ItemIngredient(new Nonterminal(newNTName), null);
+                        int ind = p.rhs!.ingredients.IndexOf(ing);
+                        p.rhs!.ingredients.Remove(ing);
+                        p.rhs!.ingredients.Insert(ind, replacement);
+                        intermediateGrammar.Add(np);
+                     }
+                     break;
+                  default:
+                     throw new Exception("Error CNFifier expected a flattened list of terminals/nonterminals");
                }
+            }
          }
       }
 
@@ -307,10 +376,10 @@ namespace GLRParser
          for (int i = count - 1; i >= 0; i--)
          {
             Production prod = intermediateGrammar[i];
-            if (prod.rhs != null)
+            int ingCount = prod.rhs.ingredients.Count;
+            if (ingCount > 0) //not an empty recipie
             {
                ItemIngredient ee = (ItemIngredient)prod.rhs!.ingredients[0];
-               int ingCount = prod.rhs!.ingredients.Count;
                if (ee.nt != null && ingCount >= 3)
                {
                   intermediateGrammar.RemoveAt(i);
@@ -348,7 +417,7 @@ namespace GLRParser
             int count = prods.Count;
             for (int i = count - 1; i >= 0; i--)
             {
-               if (prods[i].rhs == null)
+               if (prods[i].rhs.ingredients.Count == 0)
                {
                   emptyProds.Add(prods[i]);
                   prods.RemoveAt(i);
@@ -362,25 +431,17 @@ namespace GLRParser
             while (true)
             {
                IEnumerable<Nonterminal> currentNullProds = nullProds.Select(x => x.lhs).Concat(emptyProductions.Select(x => x.lhs));
-               IEnumerable<Production> nps = prods.Where(x => x.rhs!.ingredients.All(x => currentNullProds.Contains(((ItemIngredient)x).nt)));
-               if (nps.Count() == 0)
+               List<int> nps = Enumerable.Range(0, prods.Count).Where(i =>
+               {
+                  Production x = prods[i];
+                  return x.rhs!.ingredients.All(y => currentNullProds.Contains(((ItemIngredient)y).nt));
+               }).ToList(); //probably should force eager eval.
+               if (nps.Count() == 0) //if there are no more nully productions, we're done.
                   break;
-               nullProds.AddRange(nps);
-               foreach (Production p in nps)
-                  prods.Remove(p);
+               nullProds.AddRange(nps.Select(i => prods[i])); //add the chosen nully prods to the nullProds
+               foreach (int p in nps)
+                  prods.RemoveAt(p); //remove the nully prods from prods.
             }
-            //int count = prods.Count;
-            //for (int i = count - 1; i >= 0; i--)
-            //{
-            //   if (prods[i].rhs!.ingredients.All(x =>
-            //   {
-            //      return ((ItemIngredient)x).nt != null && emptyProductions.Select(y => y.lhs).Contains(((ItemIngredient)x).nt);
-            //   }))
-            //   {
-            //      nullProds.Add(prods[i]);
-            //      prods.RemoveAt(i);
-            //   }
-            //}
             return nullProds;
          }
          static List<Production> PermuteProduction(Production prod, List<Nonterminal> nullProds)
@@ -424,10 +485,11 @@ namespace GLRParser
                      Production withoutFirst = prod.Copy(), withoutSecond = prod.Copy(), withoutEither = prod.Copy();
                      withoutFirst.rhs.ingredients.RemoveAt(0);
                      withoutSecond.rhs.ingredients.RemoveAt(1);
-                     withoutEither.rhs.ingredients.RemoveAt(0);
-                     withoutEither.rhs.ingredients.RemoveAt(1);
+                     withoutEither.rhs.ingredients.RemoveAt(1); //index 1 *FIRST* because shrink
+                     withoutEither.rhs.ingredients.RemoveAt(0); //then index 0
                      resultProds.Add(withoutFirst);
-                     resultProds.Add(withoutSecond);
+                     if (ii1 != ii2) //prevent duplicate in the case that the production is two identical nonterminals
+                        resultProds.Add(withoutSecond);
                      //resultProds.Add(withoutEither); //this itself is just an empty production (Don't bother including)
                   }
                   else
@@ -453,17 +515,34 @@ namespace GLRParser
             else throw new Exception();
             return resultProds;
          }
-         #endregion
 
+         static List<Production> RemoveImpactedProductions(List<Production> prods, List<Nonterminal> nts)
+         {
+            List<Production> result = new List<Production>();
+            int count = prods.Count;
+            for (int i = count - 1; i >= 0; i--)
+            {
+               Production p = prods[i];
+               if (p.rhs.ingredientsAsItems.Select(x => x.nt).Intersect(nts).Any())
+               {
+                  prods.RemoveAt(i);
+                  result.Add(p);
+               }
+            }
+            return result;
+         }
+         #endregion
+         //Note: all empties (A = ( ) .) are nully, but not all nully are empties
          List<Production> empties = RemoveEmptyProductions(intermediateGrammar); //do not add back
          List<Production> nulls = RemoveNullableProductions(intermediateGrammar, empties); //these need to be added back
-         List<Nonterminal> nullsNT = nulls.Select(x => x.lhs).ToList();
-         foreach (Production np in nulls)
+         List<Nonterminal> nullsNT = nulls.Select(x => x.lhs).Concat(empties.Select(x => x.lhs)).ToList();
+         List<Production> impacted = RemoveImpactedProductions(intermediateGrammar, nullsNT);
+         foreach (Production np in nulls.Concat(impacted)) //needs to iterate over every production that has a nully nonterminal in the recipie
          {
             List<Production> newP = PermuteProduction(np, nullsNT);
             intermediateGrammar.AddRange(newP);
          }
-         intermediateGrammar.AddRange(nulls); //add these back because PermuteProduction doesn't include them in the return value.
+         //intermediateGrammar.AddRange(nulls); //do not explicitly add these back because PermuteProduction includes them in the return value.
 
          //List<Production> nulls = RemoveEmptyProductions(intermediateGrammar);
          //while (nulls.Count > 0)
@@ -522,24 +601,33 @@ namespace GLRParser
          //A -> ...
          //A -> ...
          //A -> ...
-         int count = intermediateGrammar.Count;
-         for (int i = count - 1; i >= 0; i--)
+         bool anyChanges;
+         do
          {
-            Production prod = intermediateGrammar[i];
-            ItemIngredient rhs = ((ItemIngredient)prod.rhs!.ingredients[0]);
-            if (prod.rhs != null && prod.rhs!.ingredients.Count == 1 && rhs.nt != null)
-            { //this is a nonterminal -> nonterminal production
-               int ind = intermediateGrammar.IndexOf(prod);
-               intermediateGrammar.RemoveAt(ind); //remove A -> B
+            anyChanges = false;
 
-               int ccount = intermediateGrammar.Count;
-               for (int j = ccount - 1; j >= 0; j--) //turn all B -> ... to A -> ...
-                  if (intermediateGrammar[j].lhs.Name == rhs.nt!.Name)
-                     intermediateGrammar[j] = new Production(prod.lhs, intermediateGrammar[j].rhs);
+            int count = intermediateGrammar.Count;
+            for (int i = count - 1; i >= 0; i--)
+            {
+               Production prod = intermediateGrammar[i];
+               ItemIngredient rhs = ((ItemIngredient)prod.rhs!.ingredients[0]);
+               if (prod.rhs.ingredients.Count == 1 && rhs.nt != null)
+               { //this is a nonterminal -> nonterminal production
+                  intermediateGrammar.RemoveAt(i); //remove A -> B
+
+                  int ccount = intermediateGrammar.Count;
+                  for (int j = ccount - 1; j >= 0; j--) //find all B -> ... and add A -> ... variant
+                     if (intermediateGrammar[j].lhs == rhs.nt)
+                     {
+                        anyChanges |= true;
+                        intermediateGrammar.Add(new Production(prod.lhs.Copy(), (GroupIngredient)intermediateGrammar[j].rhs.Copy()));
+                     }
+               }
             }
-         }
+         } while (anyChanges);
       }
 
+      //maybe this belongs in a "corrective transformations" category?
       private void RemoveDuplicates(List<Production> intermediateGrammar)
       {
          int count = intermediateGrammar.Count;
@@ -553,34 +641,45 @@ namespace GLRParser
          }
       }
 
-      private bool AdheresToCNF(List<Production> intermediateGramar)
+      private void SimplifySinglyGroups(List<Production> intermediateGrammar)
       {
-         bool success = true;
-         foreach (Production p in intermediateGramar)
-         { //check to make sure it meets the requirements of CNF
-            if (p.rhs == null)
-               success &= false;
-            else
+         //e.g.
+         //A -> ( ( B ) )
+         //A -> ( B ( C ) )
+         static void Simplify(Production prod)
+         { //return true if any modification was made so we know to keep checking.
+
+            bool modificationWasMade;
+            do
             {
-               int itemCount = p.rhs!.ingredients.Count;
-               if (itemCount == 1)
-               { //should be terminal
-                  ItemIngredient ii = (ItemIngredient)p.rhs!.ingredients[0];
-                  if (ii.t == null || ii.nt != null)
-                     success &= false;
+               modificationWasMade = false;
+               for (int i = 0; i < prod.rhs.ingredients.Count; i++)
+               {
+                  if (prod.rhs.ingredients[i] is GroupIngredient)
+                  {
+                     GroupIngredient gi = ((GroupIngredient)prod.rhs.ingredients[i]);
+                     prod.rhs.ingredients.RemoveAt(i);
+                     prod.rhs.ingredients.InsertRange(i, gi.ingredients);
+                     modificationWasMade = true;
+                  }
                }
-               else if (itemCount == 2)
-               { //should be two nonterminal
-                  ItemIngredient ii1 = (ItemIngredient)p.rhs!.ingredients[0];
-                  ItemIngredient ii2 = (ItemIngredient)p.rhs!.ingredients[1];
-                  if (ii1.t != null || ii1.nt == null)
-                     success &= false;
-                  if (ii2.t != null || ii2.nt == null)
-                     success &= false;
-               }
-            }
+            } while (modificationWasMade);
          }
-         return success;
+         //if there are any groups that contain a single item, instead just delete the group and put
+         //the single item where the group was.
+         int count = intermediateGrammar.Count;
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production prod = intermediateGrammar[i];
+            intermediateGrammar.RemoveAt(i);
+            Simplify(prod);
+            intermediateGrammar.Insert(i, prod);
+         }
+      }
+
+      private void SortLexicographically(List<Production> intermediateGrammar)
+      {
+         intermediateGrammar.Sort(new Comparison<Production>((a, b) => a.lhs.Name.CompareTo(b.lhs.Name)));
       }
       #endregion
 
@@ -995,5 +1094,78 @@ namespace GLRParser
          return '_' + res.ToString();
       }
       #endregion
+
+      #region Check
+      private bool CheckAdheresToCNF(List<Production> intermediateGramar)
+      {
+         bool success = true;
+         foreach (Production p in intermediateGramar)
+         { //check to make sure it meets the requirements of CNF
+            if (p.rhs == null)
+               success &= false;
+            else
+            {
+               int itemCount = p.rhs!.ingredients.Count;
+               if (itemCount == 1)
+               { //should be terminal
+                  ItemIngredient ii = (ItemIngredient)p.rhs!.ingredients[0];
+                  if (ii.t == null || ii.nt != null)
+                     success &= false;
+               }
+               else if (itemCount == 2)
+               { //should be two nonterminal
+                  ItemIngredient ii1 = (ItemIngredient)p.rhs!.ingredients[0];
+                  ItemIngredient ii2 = (ItemIngredient)p.rhs!.ingredients[1];
+                  if (ii1.t != null || ii1.nt == null)
+                     success &= false;
+                  if (ii2.t != null || ii2.nt == null)
+                     success &= false;
+               }
+            }
+         }
+         return success;
+      }
+
+      private bool CheckNoDuplicateProductions(List<Production> intermediateGrammar)
+      {
+         int count = intermediateGrammar.Count;
+         for (int i = count - 1; i >= 0; i--)
+         {
+            Production potentialDuplicate = intermediateGrammar[i];
+            if (intermediateGrammar.Count(x => x == potentialDuplicate) > 1)
+               return false;
+         }
+         return true;
+      }
+      #endregion
+
+      private List<Production> OrdGrammarRepresentation(List<Production> intermediateGrammar)
+      {
+         //todo: see if there's a clean way to prevent right paren groupings
+         List<Production> result = new List<Production>();
+         var prodGroups = intermediateGrammar.GroupBy(x => x.lhs); //groups with the same LHS
+         foreach (var group in prodGroups)
+         {
+            Production newProd = new Production(group.First().lhs, new GroupIngredient(new List<Ingredient>()));
+            List<GroupIngredient> rhss = group.Select(x => (x.rhs.Copy() as GroupIngredient)!).ToList();
+            if (rhss.Count == 1)
+               newProd.rhs.ingredients.Add(rhss[0]);
+            else if (rhss.Count == 2)
+               newProd.rhs.ingredients.Add(new OrIngredient(rhss[0], rhss[1]));
+            else
+            { //hard to do iteravely because the code require mutability, but OrIngredient is immutable.
+               static OrIngredient RecurAllOrs(List<GroupIngredient> ings, int ind)
+               {
+                  if (ind == ings.Count - 2)
+                     return new OrIngredient(ings[ings.Count - 2], ings[ings.Count - 1]);
+                  else
+                     return new OrIngredient(ings[ind], RecurAllOrs(ings, ind + 1));
+               }
+               newProd.rhs.ingredients.Add(RecurAllOrs(rhss, 0));
+            }
+            result.Add(newProd);
+         }
+         return result;
+      }
    }
 }
