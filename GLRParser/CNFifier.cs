@@ -135,9 +135,10 @@ namespace GLRParser
       /// * All non-terminals consist of [A-Za-z-] (upon converting the grammar,
       /// some of the non-terminals in the output grammar may contain underscores
       /// (_) as well).<br/>
+      /// * All terminals consist of [TODO].<br/>
       /// * All terminals are encapsulated in single quotes "'".<br/>
       /// * All terminals that contain a literal single quote must be escaped with a
-      /// backslash. (e.g., "'\''"). <br/><br/>
+      /// backslash. (e.g., "'\''").<br/><br/>
       /// 
       /// This CNFifier is designed to handle grammar adhering to the same rules
       /// as the pascal specification.
@@ -228,43 +229,131 @@ namespace GLRParser
                C → b | c
                A → a | ε
             */
-            new Production(new Nonterminal("S"), new GroupIngredient(new List<Ingredient>()
+            //new Production(new Nonterminal("S"), new GroupIngredient(new List<Ingredient>()
+            //{
+            //   new OrIngredient(new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(new Nonterminal("A"), null),
+            //      new ItemIngredient(null, new Terminal("b")),
+            //      new ItemIngredient(new Nonterminal("B"), null),
+            //   }), new ItemIngredient(new Nonterminal("C"), null))
+            //})),
+            //new Production(new Nonterminal("B"), new GroupIngredient(new List<Ingredient>()
+            //{
+            //   new OrIngredient(new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(new Nonterminal("A"), null),
+            //      new ItemIngredient(new Nonterminal("A"), null),
+            //   }), new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(new Nonterminal("A"), null),
+            //      new ItemIngredient(new Nonterminal("C"), null),
+            //   }))
+            //})),
+            //new Production(new Nonterminal("C"), new GroupIngredient(new List<Ingredient>()
+            //{
+            //   new OrIngredient(new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(null, new Terminal("b")),
+            //   }), new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(null, new Terminal("c")),
+            //   }))
+            //})),
+            //new Production(new Nonterminal("A"), new GroupIngredient(new List<Ingredient>()
+            //{
+            //   new OrIngredient(new GroupIngredient(new List<Ingredient>()
+            //   {
+            //      new ItemIngredient(null, new Terminal("a")),
+            //   }), new GroupIngredient(new List<Ingredient>()))
+            //})),
+            /*
+              Expr	→ Term	| Expr AddOp Term	| AddOp Term
+              Term	→ Factor	| Term MulOp Factor
+              Factor	→ Primary	| Factor ^ Primary
+              Primary	→ number	| variable	| ( Expr )
+              AddOp	→ +	| −
+              MulOp	→ *	| /
+            */
+            new Production(new Nonterminal("Expr"), new GroupIngredient(new List<Ingredient>()
             {
-               new OrIngredient(new GroupIngredient(new List<Ingredient>()
-               {
-                  new ItemIngredient(new Nonterminal("A"), null),
-                  new ItemIngredient(null, new Terminal("b")),
-                  new ItemIngredient(new Nonterminal("B"), null),
-               }), new ItemIngredient(new Nonterminal("C"), null))
+               new OrIngredient
+               (
+                  new ItemIngredient(new Nonterminal("Term"), null), 
+                  new OrIngredient
+                  (
+                     new GroupIngredient(new List<Ingredient>()
+                     {
+                        new ItemIngredient(new Nonterminal("Expr"), null),
+                        new ItemIngredient(new Nonterminal("AddOp"), null),
+                        new ItemIngredient(new Nonterminal("Term"), null),
+                     }),
+                     new GroupIngredient(new List<Ingredient>()
+                     {
+                        new ItemIngredient(new Nonterminal("AddOp"), null),
+                        new ItemIngredient(new Nonterminal("Term"), null),
+                     })
+                  )
+               )
             })),
-            new Production(new Nonterminal("B"), new GroupIngredient(new List<Ingredient>()
+            new Production(new Nonterminal("Term"), new GroupIngredient(new List<Ingredient>()
             {
-               new OrIngredient(new GroupIngredient(new List<Ingredient>()
-               {
-                  new ItemIngredient(new Nonterminal("A"), null),
-                  new ItemIngredient(new Nonterminal("A"), null),
-               }), new GroupIngredient(new List<Ingredient>()
-               {
-                  new ItemIngredient(new Nonterminal("A"), null),
-                  new ItemIngredient(new Nonterminal("C"), null),
-               }))
+               new OrIngredient
+               (
+                  new ItemIngredient(new Nonterminal("Factor"), null),
+                  new GroupIngredient(new List<Ingredient>()
+                  {
+                     new ItemIngredient(new Nonterminal("Term"), null),
+                     new ItemIngredient(new Nonterminal("MulOp"), null),
+                     new ItemIngredient(new Nonterminal("Factor"), null),
+                  })
+               )
             })),
-            new Production(new Nonterminal("C"), new GroupIngredient(new List<Ingredient>()
+            new Production(new Nonterminal("Factor"), new GroupIngredient(new List<Ingredient>()
             {
-               new OrIngredient(new GroupIngredient(new List<Ingredient>()
-               {
-                  new ItemIngredient(null, new Terminal("b")),
-               }), new GroupIngredient(new List<Ingredient>()
-               {
-                  new ItemIngredient(null, new Terminal("c")),
-               }))
+               new OrIngredient
+               (
+                  new ItemIngredient(new Nonterminal("Primary"), null),
+                  new GroupIngredient(new List<Ingredient>()
+                  {
+                     new ItemIngredient(new Nonterminal("Factor"), null),
+                     new ItemIngredient(null, new Terminal("^")),
+                     new ItemIngredient(new Nonterminal("Primary"), null),
+                  })
+               )
             })),
-            new Production(new Nonterminal("A"), new GroupIngredient(new List<Ingredient>()
+            new Production(new Nonterminal("Primary"), new GroupIngredient(new List<Ingredient>()
             {
-               new OrIngredient(new GroupIngredient(new List<Ingredient>()
-               {
-                  new ItemIngredient(null, new Terminal("a")),
-               }), new GroupIngredient(new List<Ingredient>()))
+               new OrIngredient
+               (
+                  new ItemIngredient(null, new Terminal("number")),
+                  new OrIngredient
+                  (
+                     new ItemIngredient(null, new Terminal("variable")),
+                     new GroupIngredient(new List<Ingredient>()
+                     {
+                        new ItemIngredient(null, new Terminal("(")),
+                        new ItemIngredient(new Nonterminal("Expr"), null),
+                        new ItemIngredient(null, new Terminal(")")),
+                     })
+                  )
+               )
+            })),
+            new Production(new Nonterminal("AddOp"), new GroupIngredient(new List<Ingredient>()
+            {
+               new OrIngredient
+               (
+                  new ItemIngredient(null, new Terminal("+")),
+                  new ItemIngredient(null, new Terminal("-"))
+               )
+            })),
+            new Production(new Nonterminal("MulOp"), new GroupIngredient(new List<Ingredient>()
+            {
+               new OrIngredient
+               (
+                  new ItemIngredient(null, new Terminal("*")),
+                  new ItemIngredient(null, new Terminal("/"))
+               )
             })),
          };
          List<Production> parsedGrammar = new List<Production>();
@@ -274,11 +363,14 @@ namespace GLRParser
 
          //temp:
          parsedGrammar = testGrammar;
-         startingNonterminal = "S";
+         startingNonterminal = "Expr";
 
          //TODO: convert grammar source into list of productions.
 
          //TODO: after each transformation step(s), ensure the desired property was achieved (so that subsequent transformation methods don't need to check).
+
+         if (!parsedGrammar.Any(x => x.lhs.Name == startingNonterminal))
+            throw new Exception("The starting nonterminal does not appear in the grammar source!");
 
          //call in either of these orders:
          //?VARIABLE?,...,...,START,TERM,BIN,DEL,UNIT
@@ -289,6 +381,7 @@ namespace GLRParser
          while (needPreTransform)
          {
             //keep attempting to apply these transformations until it no longer does anything.
+            //since these are 'non-piercing', I don't think the order of these can affect the blow-up of the grammar.
             bool t = false;
             t |= TransformGrammarVARIABLE(parsedGrammar);
             t |= TransformGrammarEITHER(parsedGrammar);
