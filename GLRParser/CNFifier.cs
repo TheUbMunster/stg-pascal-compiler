@@ -814,24 +814,17 @@ namespace GLRParser
             partA = partB = partC = partD = null;
             if (prod.rhs != null) //this just checks one level. If the entire level fails, we need to recur on GroupIngredients at this level.
             {
-               string newNTName = CreateUniqueIngredientName();
                Production potentialModifiedOriginalWith = prod.Copy(),
                   potentialModifiedOriginalWithout = prod.Copy(),
-                  potentialPartC = 
-                  new Production(new Nonterminal(newNTName), 
-                     new GroupIngredient(new List<Ingredient>() 
-                     {
-                        new ItemIngredient(new Nonterminal(newNTName), null),
-                        new ItemIngredient(new Nonterminal(newNTName), null) 
-                     })
-                  ),
-                  potentialPartD = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()));
+                  potentialPartD;
                //extract { B }, stick it in potentialPartC, remove it from potentialModifiedOriginal
+               string newNTName;
                { //WITH Z
                   Queue<(GroupIngredient parent, Ingredient inQuestion)> zeroOrOneVIs = new();
                   RecurAddBFS(ref zeroOrOneVIs, potentialModifiedOriginalWith.rhs!, BFSGoals.VIRepeat);
                   if (zeroOrOneVIs.Count == 0)
                      return false;
+                  newNTName = CreateUniqueIngredientName(); //we know we're using it, so allocate it.
                   var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
 
                   int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
@@ -847,9 +840,16 @@ namespace GLRParser
                   int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
                   chosenVI.parent.ingredients.Remove(chosenVI.inQuestion);
                   partB = potentialModifiedOriginalWithout;
+                  potentialPartD = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()));
                   potentialPartD.rhs!.ingredients.Add(((VariableIngredient)chosenVI.inQuestion).item);
                }
-               partC = potentialPartC;
+               partC = new Production(new Nonterminal(newNTName),
+                     new GroupIngredient(new List<Ingredient>()
+                     {
+                        new ItemIngredient(new Nonterminal(newNTName), null),
+                        new ItemIngredient(new Nonterminal(newNTName), null)
+                     })
+                  );
                partD = potentialPartD;
                return true;
             }
