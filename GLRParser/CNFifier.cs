@@ -404,6 +404,102 @@ namespace GLRParser
             throw new Exception("Applied all CNFifier transformations, and yet output grammar was not CNF");
          CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
          List<Production> ord = OrdGrammarRepresentation(parsedGrammar); //needs testing
+
+         /*
+          * For this CNFifier to be actually useful in making a *parser*, and not just a recognizer,
+          * the parser tree would be best to be constructed of the form akin to the *original grammar*,
+          * not the transformed one. Since code needs to be written to read the nodes at compile time,
+          * it won't work with whatever the CNFifier spits out, so we need to make a system that "keeps
+          * track" of the transformations made on each grammar node. If transformations are "atomic",
+          * then every time a transformation occurs, that transformation can be reversed later after
+          * to create an AST node tree that is comprised of nodes from the original grammar.
+          * 
+          * To handle this, I think the idea of a "mapping" might be useful. For example, if a grammar
+          * like this:
+          * 
+          * A -> B c D
+          * 
+          * Gets transformed into something like this (CNF):
+          * 
+          * A -> B _A_bin_partial
+          * _A_bin_partial -> _c_removed_term D
+          * _c_removed_term -> c
+          * 
+          * And *if* we are able to somehow guarantee that an "A" nonterminal in the former is logically
+          * equivalent to an "A" nonterminal in the transformed version, then we can "match them together".
+          * 
+          * This guarantee probably can only be enforced on the LHS of productions, because if we enforce it
+          * on both, then the grammar is 100% rigid, and no transformations could even occur, right?
+          * 
+          * One possibility would be to "linearize" the parse and "forcefully impose" the result on the original
+          * grammar structure (but in certain situations, this there might be ambiguity (e.g., left handed vs 
+          * right handed expressions).
+          * 
+          * See this stackxchange post I made: https://stackoverflow.com/questions/78919141/how-to-convert-a-parse-tree-of-one-grammar-in-cnf-form-and-apply-it-to-the-ori
+          * 
+          * ~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~=~
+          * Originally, I had thought the above approach was flawed and I had begun to stub out another thought,
+          * but then I realized it's the same idea, but stated differently.
+          * 
+          * This seems flawed, and I think theres a better idea:
+          * 
+          * If we take a look at the starting recipies of both:
+          * A -> B c D
+          * A -> B _A_bin_partial
+          * 
+          * Somehow a parse tree of the latter form must somehow contain everything the former does.
+          * Suppose that we instantiate an empty ASTNode of the former form (with the intent to 
+          * Stepping through one by one, we see that
+          * 
+          * A -> B c D
+          *      ^
+          *      |------ This (former)
+          *      
+          * A -> B _A_bin_partial
+          *      ^ ^ 
+          *      | |
+          *      | ----- And potentially also this (latter)
+          *      |
+          *      |------ And this (latter)
+          *      
+          * The latter information must correlate to the former.
+          *      
+          *      
+          * -===================================================================================-
+          * 
+          * Taking it one by one, here are my thoughts on each of the individual transformations:
+          * 
+          * VARIABLE:
+          * EITHER:
+          * OPTIONAL:
+          * 
+          * -===================-
+          * SimplifySinglyGroups:
+          * -===================-
+          * All this does is removes crazy nested parenthesis like these "A = ( ( ( NONTERM ) ) ) ."
+          * and fixes it to something like this: "A = ( NONTERM ) ."
+          * 
+          * -====-
+          * START:
+          * -====-
+          * This technechally doesn't manipulate the grammar, it *adds* to it. If a grammar has multiple
+          * recipies from the start node, this condenses it to a single start node (this also guarantees
+          * that the (literal) start node never appears on the RHS of a recipie, which is required for CYK).
+          * I'm not sure how to map this.
+          * 
+          * -===-
+          * TERM:
+          * -===-
+          * Since this creates a new recipie *dedicated* for [this] recipie, anytime we try to "handle"
+          * an ASTNode of the new type in the output parse, we know the only place it could possibly belong
+          * is to a [this] type recipie, so the mapping seems trivial.
+          * 
+          * BIN:
+          * DEL:
+          * UNIT:
+          * RemoveDuplicates:
+          * SortLexicographically:
+          */
       }
 
       #region Utility
@@ -412,7 +508,7 @@ namespace GLRParser
       private string TransformGrammarSTART(List<Production> intermediateGrammar, string oldStartSymbol)
       {
          //ensure that the starting symbol does not appear on the right hand side of a recipie (by making a new start symbol)
-         string newNTName = CreateUniqueIngredientName();
+         string newNTName = CreateUniqueIngredientName($"{oldStartSymbol}_renamed_start");
          intermediateGrammar.Add(new Production(new Nonterminal(newNTName),
             new GroupIngredient(new List<Ingredient>()
             {
@@ -437,7 +533,7 @@ namespace GLRParser
                   case ItemIngredient ii:
                      if (ii.t != null && ingCount > 1) //we have a terminal, and this recipie has more than one ingredient.
                      {
-                        string newNTName = CreateUniqueIngredientName();
+                        string newNTName = CreateUniqueIngredientName($"{p.lhs.Name}_removed_term");
                         Production np = new Production(new Nonterminal(newNTName), new GroupIngredient(new List<Ingredient>()
                         {
                            new ItemIngredient(null, ii.t)
@@ -478,7 +574,7 @@ namespace GLRParser
                   intermediateGrammar.RemoveAt(i);
                   string[] newNTNames = new string[ingCount - 2];
                   for (int j = 0; j < newNTNames.Length; j++)
-                     newNTNames[j] = CreateUniqueIngredientName();
+                     newNTNames[j] = CreateUniqueIngredientName($"{prod.lhs.Name}_bin_partial");
                   List<ItemIngredient> iis = prod.rhs!.ingredients.Select(x => (ItemIngredient)x).ToList();
                   Nonterminal ognt = prod.lhs;
                   for (int c = 0; c < ingCount - 1; c++)
@@ -824,7 +920,7 @@ namespace GLRParser
                   RecurAddBFS(ref zeroOrOneVIs, potentialModifiedOriginalWith.rhs!, BFSGoals.VIRepeat);
                   if (zeroOrOneVIs.Count == 0)
                      return false;
-                  newNTName = CreateUniqueIngredientName(); //we know we're using it, so allocate it.
+                  newNTName = CreateUniqueIngredientName($"{prod.lhs.Name}_extract_variable"); //we know we're using it, so allocate it.
                   var chosenVI = zeroOrOneVIs.Peek(); //this is >= level to any other VI (BFS)
 
                   int ind = chosenVI.parent.ingredients.IndexOf(chosenVI.inQuestion);
@@ -1163,7 +1259,7 @@ namespace GLRParser
       //numbers:
       //private string CreateUniqueIngredientName() => $"_{uniqueIngredientCounter++}";
       //letters:
-      private string CreateUniqueIngredientName()
+      private string CreateUniqueIngredientName(string? regarding = null)
       {
          StringBuilder res = new();
          //see https://stackoverflow.com/questions/923771/quickest-way-to-convert-a-base-10-number-to-any-base-in-net
@@ -1184,7 +1280,7 @@ namespace GLRParser
 
          //at the very end
          uniqueIngredientCounter++;
-         return '_' + res.ToString();
+         return '_' + regarding ?? string.Empty + '_' + res.ToString();
       }
       #endregion
 
