@@ -20,7 +20,7 @@ namespace PascalCompiler.Parser
 
     */
 
-      public class ActualParameter : ASTNode
+   public class ActualParameter : ASTNode
    {
       public Expression? Expression { get; private init; } = null;
       public VariableAccess? VariableAccess { get; private init; } = null;
@@ -207,7 +207,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class AddingOperator : ASTNode
+   public class AddingOperator : ASTNode
    {
       public TokenNode? PlusToken { get; private init; } = null;
       public TokenNode? MinusToken { get; private init; } = null;
@@ -267,7 +267,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class ApostropheImage : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -292,7 +292,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class ArrayType : ASTNode
+   public class ArrayType : ASTNode
    {
       public TokenNode ArrayToken { get; private init; } = null!;
       public TokenNode LeftSquareBracketToken { get; private init; } = null!;
@@ -376,7 +376,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ArrayVariable : ASTNode
+   public class ArrayVariable : ASTNode
    {
       public VariableAccess VariableAccess { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -415,7 +415,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class AssignmentStatement : ASTNode
+   public class AssignmentStatement : ASTNode
    {
       public VariableAccess? VariableAccess { get; private init; } = null;
       public FunctionIdentifier? FunctionIdentifier { get; private init; } = null;
@@ -475,7 +475,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class BaseType : ASTNode
+   public class BaseType : ASTNode
    {
       public OrdinalType OrdinalType { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -513,7 +513,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Block : ASTNode
+   public class Block : ASTNode
    {
       public LabelDeclarationPart LabelDeclarationPart { get; private init; } = null!;
       public ConstantDefinitionPart ConstantDefinitionPart { get; private init; } = null!;
@@ -582,7 +582,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class BooleanExpression : ASTNode
+   public class BooleanExpression : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -620,7 +620,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class BoundIdentifier : ASTNode
+   public class BoundIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -658,7 +658,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class BufferVariable : ASTNode
+   public class BufferVariable : ASTNode
    {
       public FileVariable FileVariable { get; private init; } = null!;
       public TokenNode UpArrowToken { get; private init; } = null!;
@@ -702,7 +702,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class CaseConstant : ASTNode
+   public class CaseConstant : ASTNode
    {
       public Constant Constant { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -740,7 +740,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class CaseConstantList : ASTNode
+   public class CaseConstantList : ASTNode
    {
       public CaseConstant CaseConstant { get; private init; } = null!;
       public IReadOnlyList<(TokenNode commaToken, CaseConstant caseConstant)> SecondaryCaseConstants { get; private init; } = null!;
@@ -798,7 +798,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class CaseIndex : ASTNode
+   public class CaseIndex : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -836,7 +836,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class CaseListElement : ASTNode
+   public class CaseListElement : ASTNode
    {
       public CaseConstantList CaseConstantList { get; private init; } = null!;
       public TokenNode ColonToken { get; private init; } = null!;
@@ -886,7 +886,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class CaseStatement : ASTNode
+   public class CaseStatement : ASTNode
    {
       public TokenNode CaseToken { get; private init; } = null!;
       public CaseIndex CaseIndex { get; private init; } = null!;
@@ -977,7 +977,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class CharacterString : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -1002,7 +1002,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class ComponentType : ASTNode
+   public class ComponentType : ASTNode
    {
       public TypeDenoter TypeDenoter { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -1040,7 +1040,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ComponentVariable : ASTNode
+   public class ComponentVariable : ASTNode
    {
       public IndexedVariable? IndexedVariable { get; private init; } = null!;
       public FieldDesignator? FieldDesignator { get; private init; } = null!;
@@ -1100,7 +1100,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class CompoundStatement : ASTNode
+   public class CompoundStatement : ASTNode
    {
       public TokenNode BeginToken { get; private init; } = null!;
       public StatementSequence StatementSequence { get; private init; } = null!;
@@ -1150,7 +1150,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ConditionalStatement : ASTNode
+   public class ConditionalStatement : ASTNode
    {
       public IfStatement? IfStatement { get; private init; } = null;
       public CaseStatement? CaseStatement { get; private init; } = null;
@@ -1210,7 +1210,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ConformantArrayParameterSpecification : ASTNode
+   public class ConformantArrayParameterSpecification : ASTNode
    {
       public ValueConformantArraySpecification? ValueConformantArraySpecification { get; private init; } = null;
       public VariableConformantArraySpecification? VariableConformantArraySpecification { get; private init; } = null;
@@ -1270,7 +1270,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ConformantArraySchema : ASTNode
+   public class ConformantArraySchema : ASTNode
    {
       public PackedConformantArraySchema? PackedConformantArraySchema { get; private init; } = null;
       public UnpackedConformantArraySchema? UnpackedConformantArraySchema { get; private init; } = null;
@@ -1330,7 +1330,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Constant : ASTNode
+   public class Constant : ASTNode
    {
       public Sign? Sign { get; private init; } = null;
       public UnsignedNumber? UnsignedNumber { get; private init; } = null;
@@ -1402,7 +1402,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ConstantDefinition : ASTNode
+   public class ConstantDefinition : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public TokenNode EqualsToken { get; private init; } = null!;
@@ -1452,7 +1452,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ConstantDefinitionPart : ASTNode
+   public class ConstantDefinitionPart : ASTNode
    {
       public TokenNode? ConstToken { get; private init; } = null;
       public ConstantDefinition? ConstantDefinition { get; private init; } = null;
@@ -1529,7 +1529,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ConstantIdentifier : ASTNode
+   public class ConstantIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -1567,7 +1567,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ControlVariable : ASTNode
+   public class ControlVariable : ASTNode
    {
       public EntireVariable EntireVariable { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -1605,7 +1605,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class Digit : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -1630,7 +1630,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class DigitSequence : ASTNode
+   public class DigitSequence : ASTNode
    {
       public TokenNode Digit { get; private init; } = null!;
       public IReadOnlyList<TokenNode> SecondaryDigits { get; private init; } = null!;
@@ -1687,7 +1687,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Directive : ASTNode
+   public class Directive : ASTNode
    {
       public TokenNode Letter { get; private init; } = null!;
       public IReadOnlyList<TokenNode> SecondaryCharacters { get; private init; } = null!; //should this be a list of (TokenNode? number, TokenNode? letter)?
@@ -1745,7 +1745,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class DomainType : ASTNode
+   public class DomainType : ASTNode
    {
       public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -1783,7 +1783,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ElsePart : ASTNode
+   public class ElsePart : ASTNode
    {
       public TokenNode ElseToken { get; private init; } = null!;
       public Statement Statement { get; private init; } = null!;
@@ -1827,7 +1827,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class EmptyStatement : ASTNode
+   public class EmptyStatement : ASTNode
    {
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
@@ -1856,7 +1856,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class EntireVariable : ASTNode
+   public class EntireVariable : ASTNode
    {
       public VariableIdentifier VariableIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -1894,7 +1894,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class EnumeratedType : ASTNode
+   public class EnumeratedType : ASTNode
    {
       public TokenNode OpenParenToken { get; private init; } = null!;
       public IdentifierList IdentifierList { get; private init; } = null!;
@@ -1944,7 +1944,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Expression : ASTNode
+   public class Expression : ASTNode
    {
       public SimpleExpression SimpleExpression { get; private init; } = null!;
       public RelationalOperator? RelationalOperator { get; private init; } = null!;
@@ -2007,7 +2007,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Factor : ASTNode
+   public class Factor : ASTNode
    {
       public BoundIdentifier? BoundIdentifier { get; private init; } = null;
       public VariableAccess? VariableAccess { get; private init; } = null;
@@ -2170,7 +2170,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FieldDesignator : ASTNode
+   public class FieldDesignator : ASTNode
    {
       public RecordVariable? RecordVariable { get; private init; } = null;
       public TokenNode? DotToken { get; private init; } = null;
@@ -2242,7 +2242,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FieldDesignatorIdentifier : ASTNode
+   public class FieldDesignatorIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2280,7 +2280,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FieldIdentifier : ASTNode
+   public class FieldIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2318,7 +2318,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FieldList : ASTNode
+   public class FieldList : ASTNode
    {
       public FixedPart? FixedPart { get; private init; } = null;
       public TokenNode? Semicolon { get; private init; } = null;
@@ -2418,7 +2418,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FieldSpecifier : ASTNode
+   public class FieldSpecifier : ASTNode
    {
       public FieldIdentifier FieldIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2456,7 +2456,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FileType : ASTNode
+   public class FileType : ASTNode
    {
       public TokenNode FileToken { get; private init; } = null!;
       public TokenNode OfToken { get; private init; } = null!;
@@ -2503,7 +2503,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FileVariable : ASTNode
+   public class FileVariable : ASTNode
    {
       public VariableAccess VariableAccess { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2541,7 +2541,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FinalValue : ASTNode
+   public class FinalValue : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2579,7 +2579,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FixedPart : ASTNode
+   public class FixedPart : ASTNode
    {
       public RecordSection RecordSection { get; private init; } = null!;
       public IReadOnlyList<(TokenNode semicolonToken, RecordSection recordSection)> SecondaryRecordSections { get; private init; } = null!;
@@ -2637,7 +2637,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ForStatement : ASTNode
+   public class ForStatement : ASTNode
    {
       public TokenNode ForToken { get; private init; } = null!;
       public ControlVariable ControlVariable { get; private init; } = null!;
@@ -2720,7 +2720,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FormalParameterList : ASTNode
+   public class FormalParameterList : ASTNode
    {
       public TokenNode OpenParenToken { get; private init; } = null!;
       public FormalParameterSection FormalParameterSection { get; private init; } = null!;
@@ -2790,7 +2790,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FormalParameterSection : ASTNode
+   public class FormalParameterSection : ASTNode
    {
       public ValueParameterSpecification? ValueParameterSpecification { get; private init; } = null;
       public VariableParameterSpecification? VariableParameterSpecification { get; private init; } = null;
@@ -2901,7 +2901,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FractionalPart : ASTNode
+   public class FractionalPart : ASTNode
    {
       public DigitSequence DigitSequence { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2939,7 +2939,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionBlock : ASTNode
+   public class FunctionBlock : ASTNode
    {
       public Block Block { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -2977,7 +2977,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionDeclaration : ASTNode
+   public class FunctionDeclaration : ASTNode
    {
       public FunctionHeading? FunctionHeading { get; private init; } = null;
       public Directive? Directive { get; private init; } = null;
@@ -3086,7 +3086,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionDesignator : ASTNode
+   public class FunctionDesignator : ASTNode
    {
       public FunctionIdentifier FunctionIdentifier { get; private init; } = null!;
       public ActualParameterList? ActualParameterList { get; private init; } = null;
@@ -3127,7 +3127,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionHeading : ASTNode
+   public class FunctionHeading : ASTNode
    {
       public TokenNode FunctionToken { get; private init; } = null!;
       public Identifier Identifier { get; private init; } = null!;
@@ -3186,7 +3186,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionIdentification : ASTNode
+   public class FunctionIdentification : ASTNode
    {
       public TokenNode FunctionToken { get; private init; } = null!;
       public FunctionIdentifier FunctionIdentifier { get; private init; } = null!;
@@ -3230,7 +3230,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionIdentifier : ASTNode
+   public class FunctionIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -3268,7 +3268,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class FunctionalParameterSpecification : ASTNode
+   public class FunctionalParameterSpecification : ASTNode
    {
       public FunctionHeading FunctionHeading { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -3306,7 +3306,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class GotoStatement : ASTNode
+   public class GotoStatement : ASTNode
    {
       public TokenNode GotoToken { get; private init; } = null!;
       public Label Label { get; private init; } = null!;
@@ -3350,7 +3350,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IdentifiedVariable : ASTNode
+   public class IdentifiedVariable : ASTNode
    {
       public PointerVariable PointerVariable { get; private init; } = null!;
       public TokenNode UpArrowToken { get; private init; } = null!;
@@ -3394,7 +3394,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Identifier : ASTNode
+   public class Identifier : ASTNode
    {
       public TokenNode Letter { get; private init; } = null!;
       public IReadOnlyList<TokenNode> SecondaryCharacters { get; private init; } = null!;
@@ -3452,7 +3452,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IdentifierList : ASTNode
+   public class IdentifierList : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public IReadOnlyList<(TokenNode commaToken, Identifier identifier)> SecondaryIdentifiers { get; private init; } = null!;
@@ -3510,7 +3510,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IfStatement : ASTNode
+   public class IfStatement : ASTNode
    {
       public TokenNode IfToken { get; private init; } = null!;
       public BooleanExpression BooleanExpression { get; private init; } = null!;
@@ -3569,7 +3569,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IndexExpression : ASTNode
+   public class IndexExpression : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -3607,7 +3607,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IndexType : ASTNode
+   public class IndexType : ASTNode
    {
       public OrdinalType OrdinalType { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -3645,7 +3645,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IndexTypeSpecification : ASTNode
+   public class IndexTypeSpecification : ASTNode
    {
       public Identifier FirstIdentifier { get; private init; } = null!;
       public TokenNode DoubleDotToken { get; private init; } = null!;
@@ -3707,7 +3707,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class IndexedVariable : ASTNode
+   public class IndexedVariable : ASTNode
    {
       public ArrayVariable ArrayVariable { get; private init; } = null!;
       public TokenNode LeftSquareBracketToken { get; private init; } = null!;
@@ -3783,7 +3783,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class InitialValue : ASTNode
+   public class InitialValue : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -3821,7 +3821,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Label : ASTNode
+   public class Label : ASTNode
    {
       public DigitSequence DigitSequence { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -3859,7 +3859,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class LabelDeclarationPart : ASTNode
+   public class LabelDeclarationPart : ASTNode
    {
       //items to complete a derived ASTNode:
       //Add all relevant ASTNode/Lexer Token data members
@@ -3995,7 +3995,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class Letter : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -4020,7 +4020,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class MemberDesignator : ASTNode
+   public class MemberDesignator : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public TokenNode? DoubleDotToken { get; private init; } = null;
@@ -4079,7 +4079,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class MultiplyingOperator : ASTNode
+   public class MultiplyingOperator : ASTNode
    {
       public TokenNode? AsteriskToken { get; private init; } = null;
       public TokenNode? ForwardSlashToken { get; private init; } = null;
@@ -4190,7 +4190,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class NewOrdinalType : ASTNode
+   public class NewOrdinalType : ASTNode
    {
       public EnumeratedType? EnumeratedType { get; private init; } = null;
       public SubrangeType? SubrangeType { get; private init; } = null;
@@ -4250,7 +4250,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class NewPointerType : ASTNode
+   public class NewPointerType : ASTNode
    {
       public TokenNode UpArrowToken { get; private init; } = null!;
       public DomainType DomainType { get; private init; } = null!;
@@ -4294,7 +4294,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class NewStructuredType : ASTNode
+   public class NewStructuredType : ASTNode
    { //treated like: new-structured-type = 'packed' unpacked-structured-type | unpacked-structured-type .
       public TokenNode? PackedToken { get; private init; } = null;
       public UnpackedStructuredType UnpackedStructuredType { get; private init; } = null!;
@@ -4359,7 +4359,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class NewType : ASTNode
+   public class NewType : ASTNode
    {
       public NewOrdinalType? NewOrdinalType { get; private init; } = null;
       public NewStructuredType? NewStructuredType { get; private init; } = null;
@@ -4436,7 +4436,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class OrdinalType : ASTNode
+   public class OrdinalType : ASTNode
    {
       public NewOrdinalType? NewOrdinalType { get; private init; } = null;
       public OrdinalTypeIdentifier? OrdinalTypeIdentifier { get; private init; } = null;
@@ -4496,7 +4496,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class OrdinalTypeIdentifier : ASTNode
+   public class OrdinalTypeIdentifier : ASTNode
    {
       public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -4534,7 +4534,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class PackedConformantArraySchema : ASTNode
+   public class PackedConformantArraySchema : ASTNode
    {
       public TokenNode PackedToken { get; private init; } = null!;
       public TokenNode ArrayToken { get; private init; } = null!;
@@ -4608,7 +4608,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class PointerType : ASTNode
+   public class PointerType : ASTNode
    {
       public NewPointerType? NewPointerType { get; private init; } = null;
       public PointerTypeIdentifier? PointerTypeIdentifier { get; private init; } = null;
@@ -4668,7 +4668,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class PointerTypeIdentifier : ASTNode
+   public class PointerTypeIdentifier : ASTNode
    {
       public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -4706,7 +4706,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class PointerVariable : ASTNode
+   public class PointerVariable : ASTNode
    {
       public VariableAccess VariableAccess { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -4744,7 +4744,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProceduralParameterSpecification : ASTNode
+   public class ProceduralParameterSpecification : ASTNode
    {
       public ProcedureHeading ProcedureHeading { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -4782,7 +4782,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureAndFunctionDeclarationPart : ASTNode
+   public class ProcedureAndFunctionDeclarationPart : ASTNode
    {
       public IReadOnlyList<(ProcedureDeclaration? procedureDeclaration, FunctionDeclaration? functionDeclaration, TokenNode semicolonToken)> ProcedureAndFunctionDeclarationParts { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -4839,7 +4839,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureBlock : ASTNode
+   public class ProcedureBlock : ASTNode
    {
       public Block Block { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -4877,7 +4877,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureDeclaration : ASTNode
+   public class ProcedureDeclaration : ASTNode
    {
       public ProcedureHeading? ProcedureHeading { get; private init; } = null;
       public Directive? Directive { get; private init; } = null;
@@ -4986,7 +4986,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureHeading : ASTNode
+   public class ProcedureHeading : ASTNode
    {
       public TokenNode ProcedureToken { get; private init; } = null!;
       public Identifier Identifier { get; private init; } = null!;
@@ -5033,7 +5033,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureIdentification : ASTNode
+   public class ProcedureIdentification : ASTNode
    {
       public TokenNode ProcedureToken { get; private init; } = null!;
       public ProcedureIdentifier ProcedureIdentifier { get; private init; } = null!;
@@ -5077,7 +5077,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureIdentifier : ASTNode
+   public class ProcedureIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -5115,7 +5115,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProcedureStatement : ASTNode
+   public class ProcedureStatement : ASTNode
    {
       public ProcedureIdentifier ProcedureIdentifier { get; private init; } = null!;
       public ActualParameterList? ActualParameterList { get; private init; } = null;
@@ -5233,7 +5233,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Program : ASTNode
+   public class Program : ASTNode
    {
       public ProgramHeading ProgramHeading { get; private init; } = null!;
       public TokenNode SemicolonToken { get; private init; } = null!;
@@ -5302,7 +5302,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProgramBlock : ASTNode
+   public class ProgramBlock : ASTNode
    {
       public Block Block { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -5340,7 +5340,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProgramHeading : ASTNode
+   public class ProgramHeading : ASTNode
    {
       public TokenNode ProgramToken { get; private init; } = null!;
       public Identifier Identifier { get; private init; } = null!;
@@ -5420,7 +5420,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ProgramParameterList : ASTNode
+   public class ProgramParameterList : ASTNode
    {
       public IdentifierList IdentifierList { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -5458,7 +5458,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ReadParameterList : ASTNode
+   public class ReadParameterList : ASTNode
    {
       public TokenNode OpenParenToken { get; private init; } = null!;
       public FileVariable? FileVariable { get; private init; } = null;
@@ -5544,7 +5544,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ReadlnParameterList : ASTNode
+   public class ReadlnParameterList : ASTNode
    {
       public TokenNode? OpenParenToken { get; private init; } = null;
       public FileVariable? FileVariable { get; private init; } = null;
@@ -5616,7 +5616,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RealTypeIdentifier : ASTNode
+   public class RealTypeIdentifier : ASTNode
    {
       public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -5654,7 +5654,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RecordSection : ASTNode
+   public class RecordSection : ASTNode
    {
       public IdentifierList IdentifierList { get; private init; } = null!;
       public TokenNode ColonToken { get; private init; } = null!;
@@ -5704,7 +5704,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RecordType : ASTNode
+   public class RecordType : ASTNode
    {
       public TokenNode RecordToken { get; private init; } = null!;
       public FieldList FieldList { get; private init; } = null!;
@@ -5754,7 +5754,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RecordVariable : ASTNode
+   public class RecordVariable : ASTNode
    {
       public VariableAccess VariableAccess { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -5792,7 +5792,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RecordVariableList : ASTNode
+   public class RecordVariableList : ASTNode
    {
       public RecordVariable RecordVariable { get; private init; } = null!;
       public IReadOnlyList<(TokenNode commaToken, RecordVariable recordVariable)> SecondaryRecordVariables { get; private init; } = null!;
@@ -5850,7 +5850,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RelationalOperator : ASTNode
+   public class RelationalOperator : ASTNode
    {
       public TokenNode? EqualsToken { get; private init; } = null;
       public TokenNode? KetPairToken { get; private init; } = null;
@@ -5995,7 +5995,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RepeatStatement : ASTNode
+   public class RepeatStatement : ASTNode
    {
       public TokenNode RepeatToken { get; private init; } = null!;
       public StatementSequence StatementSequence { get; private init; } = null!;
@@ -6051,7 +6051,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class RepetitiveStatement : ASTNode
+   public class RepetitiveStatement : ASTNode
    {
       public RepeatStatement? RepeatStatement { get; private init; } = null;
       public WhileStatement? WhileStatement { get; private init; } = null;
@@ -6128,7 +6128,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ResultType : ASTNode
+   public class ResultType : ASTNode
    {
       public SimpleTypeIdentifier? SimpleTypeIdentifier { get; private init; } = null;
       public PointerTypeIdentifier? PointerTypeIdentifier { get; private init; } = null;
@@ -6188,7 +6188,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ScaleFactor : ASTNode
+   public class ScaleFactor : ASTNode
    {
       public Sign? Sign { get; private init; } = null;
       public DigitSequence DigitSequence { get; private init; } = null!;
@@ -6229,7 +6229,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SetConstructor : ASTNode
+   public class SetConstructor : ASTNode
    {
       public TokenNode LeftSquareBracketToken { get; private init; } = null!;
       public MemberDesignator? MemberDesignator { get; private init; } = null;
@@ -6325,7 +6325,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SetType : ASTNode
+   public class SetType : ASTNode
    {
       public TokenNode SetToken { get; private init; } = null!;
       public TokenNode OfToken { get; private init; } = null!;
@@ -6375,7 +6375,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Sign : ASTNode
+   public class Sign : ASTNode
    {
       public TokenNode? PlusToken { get; private init; } = null;
       public TokenNode? MinusToken { get; private init; } = null;
@@ -6435,7 +6435,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SignedInteger : ASTNode
+   public class SignedInteger : ASTNode
    {
       public Sign? Sign { get; private init; } = null;
       public UnsignedInteger UnsignedInteger { get; private init; } = null!;
@@ -6476,7 +6476,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SignedNumber : ASTNode
+   public class SignedNumber : ASTNode
    {
       public SignedInteger? SignedInteger { get; private init; } = null;
       public SignedReal? SignedReal { get; private init; } = null;
@@ -6536,7 +6536,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SignedReal : ASTNode
+   public class SignedReal : ASTNode
    {
       public Sign? Sign { get; private init; } = null;
       public UnsignedReal UnsignedReal { get; private init; } = null!;
@@ -6577,7 +6577,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SimpleExpression : ASTNode
+   public class SimpleExpression : ASTNode
    {
       public Sign? Sign { get; private init; } = null;
       public Term Term { get; private init; } = null!;
@@ -6638,7 +6638,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SimpleStatement : ASTNode
+   public class SimpleStatement : ASTNode
    {
       public EmptyStatement? EmptyStatement { get; private init; } = null;
       public AssignmentStatement? AssignmentStatement { get; private set; } = null;
@@ -6732,7 +6732,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SimpleType : ASTNode
+   public class SimpleType : ASTNode
    {
       public OrdinalType? OrdinalType { get; private init; } = null;
       public RealTypeIdentifier? RealTypeIdentifier { get; private init; } = null;
@@ -6792,7 +6792,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SimpleTypeIdentifier : ASTNode
+   public class SimpleTypeIdentifier : ASTNode
    {
       public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -6830,7 +6830,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class SpecialSymbol : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -6855,7 +6855,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class Statement : ASTNode
+   public class Statement : ASTNode
    {
       public Label? Label { get; private init; } = null;
       public TokenNode? ColonToken { get; private init; } = null;
@@ -6936,7 +6936,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class StatementPart : ASTNode
+   public class StatementPart : ASTNode
    {
       public CompoundStatement CompoundStatement { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -6974,7 +6974,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class StatementSequence : ASTNode
+   public class StatementSequence : ASTNode
    {
       public Statement Statement { get; private init; } = null!;
       public IReadOnlyList<(TokenNode semicolon, Statement statement)> SecondaryStatements { get; private init; } = null!;
@@ -7032,7 +7032,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class StringCharacter : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -7057,7 +7057,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      //unneeded
+   //unneeded
    //public class StringElement : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -7082,7 +7082,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class StructuredStatement : ASTNode
+   public class StructuredStatement : ASTNode
    {
       public CompoundStatement? CompoundStatement { get; private init; } = null;
       public ConditionalStatement? ConditionalStatement { get; private init; } = null;
@@ -7176,7 +7176,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class StructuredType : ASTNode
+   public class StructuredType : ASTNode
    {
       public NewStructuredType? NewStructuredType { get; private init; } = null;
       public StructuredTypeIdentifier? StructuredTypeIdentifier { get; private init; } = null;
@@ -7236,7 +7236,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class StructuredTypeIdentifier : ASTNode
+   public class StructuredTypeIdentifier : ASTNode
    {
       public TypeIdentifier TypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -7274,7 +7274,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class SubrangeType : ASTNode
+   public class SubrangeType : ASTNode
    {
       public Constant Constant { get; private init; } = null!;
       public TokenNode DoubleDotToken { get; private init; } = null!;
@@ -7324,7 +7324,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class TagField : ASTNode
+   public class TagField : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -7362,7 +7362,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class TagType : ASTNode
+   public class TagType : ASTNode
    {
       public OrdinalTypeIdentifier OrdinalTypeIdentifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -7400,7 +7400,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Term : ASTNode
+   public class Term : ASTNode
    {
       public Factor Factor { get; private init; } = null!;
       public IReadOnlyList<(MultiplyingOperator multiplyingOperator, Factor factor)> SecondaryFactors { get; private init; } = null!;
@@ -7458,7 +7458,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class TypeDefinition : ASTNode
+   public class TypeDefinition : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public TokenNode EqualsToken { get; private init; } = null!;
@@ -7508,7 +7508,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class TypeDefinitionPart : ASTNode
+   public class TypeDefinitionPart : ASTNode
    {
       public TokenNode? TypeToken { get; private init; } = null;
       public TypeDefinition? TypeDefinition { get; private init; } = null;
@@ -7584,7 +7584,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class TypeDenoter : ASTNode
+   public class TypeDenoter : ASTNode
    {
       public TypeIdentifier? TypeIdentifier { get; private init; } = null;
       public NewType? NewType { get; private init; } = null;
@@ -7644,7 +7644,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class TypeIdentifier : ASTNode
+   public class TypeIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -7682,7 +7682,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class UnpackedConformantArraySchema : ASTNode
+   public class UnpackedConformantArraySchema : ASTNode
    {
       public TokenNode ArrayToken { get; private init; } = null!;
       public TokenNode LeftSquareBracketToken { get; private init; } = null!;
@@ -7772,7 +7772,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class UnpackedStructuredType : ASTNode
+   public class UnpackedStructuredType : ASTNode
    {
       public ArrayType? ArrayType { get; private init; } = null;
       public RecordType? RecordType { get; private init; } = null;
@@ -7866,7 +7866,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class UnsignedConstant : ASTNode
+   public class UnsignedConstant : ASTNode
    {
       public UnsignedNumber? UnsignedNumber { get; private init; } = null;
       public TokenNode? CharacterStringToken { get; private init; } = null;
@@ -7960,7 +7960,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class UnsignedInteger : ASTNode
+   public class UnsignedInteger : ASTNode
    {
       public DigitSequence DigitSequence { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -7998,7 +7998,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class UnsignedNumber : ASTNode
+   public class UnsignedNumber : ASTNode
    {
       public UnsignedInteger? UnsignedInteger { get; private init; } = null;
       public UnsignedReal? UnsignedReal { get; private init; } = null;
@@ -8058,7 +8058,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class UnsignedReal : ASTNode
+   public class UnsignedReal : ASTNode
    {
       public DigitSequence DigitSequence { get; private init; } = null!;
       public TokenNode? DotToken { get; private init; } = null!;
@@ -8162,7 +8162,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ValueConformantArraySpecification : ASTNode
+   public class ValueConformantArraySpecification : ASTNode
    {
       public IdentifierList IdentifierList { get; private init; } = null!;
       public TokenNode ColonToken { get; private init; } = null!;
@@ -8212,7 +8212,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class ValueParameterSpecification : ASTNode
+   public class ValueParameterSpecification : ASTNode
    {
       public IdentifierList IdentifierList { get; private init; } = null!;
       public TokenNode ColonToken { get; private init; } = null!;
@@ -8262,7 +8262,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariableAccess : ASTNode
+   public class VariableAccess : ASTNode
    {
       public EntireVariable? EntireVariable { get; private init; } = null;
       public ComponentVariable? ComponentVariable { get; private init; } = null;
@@ -8356,7 +8356,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariableConformantArraySpecification : ASTNode
+   public class VariableConformantArraySpecification : ASTNode
    {
       public TokenNode VarToken { get; private init; } = null!;
       public IdentifierList IdentifierList { get; private init; } = null!;
@@ -8412,7 +8412,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariableDeclaration : ASTNode
+   public class VariableDeclaration : ASTNode
    {
       public IdentifierList IdentifierList { get; private init; } = null!;
       public TokenNode ColonToken { get; private init; } = null!;
@@ -8462,7 +8462,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariableDeclarationPart : ASTNode
+   public class VariableDeclarationPart : ASTNode
    {
       public TokenNode? VarToken { get; private init; } = null;
       public VariableDeclaration? VariableDeclaration { get; private init; } = null;
@@ -8538,7 +8538,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariableIdentifier : ASTNode
+   public class VariableIdentifier : ASTNode
    {
       public Identifier Identifier { get; private init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
@@ -8576,7 +8576,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariableParameterSpecification : ASTNode
+   public class VariableParameterSpecification : ASTNode
    {
       public TokenNode VarToken { get; private init; } = null!;
       public IdentifierList IdentifierList { get; private init; } = null!;
@@ -8632,7 +8632,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class Variant : ASTNode
+   public class Variant : ASTNode
    {
       public CaseConstantList CaseConstantList { get; private init; } = null!;
       public TokenNode ColonToken { get; private init; } = null!;
@@ -8694,7 +8694,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariantPart : ASTNode
+   public class VariantPart : ASTNode
    {
       public TokenNode CaseToken { get; private init; } = null!;
       public VariantSelector VariantSelector { get; private init; } = null!;
@@ -8770,7 +8770,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class VariantSelector : ASTNode
+   public class VariantSelector : ASTNode
    {
       public TagField? TagField { get; private init; } = null;
       public TokenNode? ColonToken { get; private init; } = null;
@@ -8841,7 +8841,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class WhileStatement : ASTNode
+   public class WhileStatement : ASTNode
    {
       public TokenNode WhileToken { get; private init; } = null!;
       public BooleanExpression BooleanExpression { get; private init; } = null!;
@@ -8897,7 +8897,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class WithStatement : ASTNode
+   public class WithStatement : ASTNode
    {
       public TokenNode WithToken { get; private init; } = null!;
       public RecordVariableList RecordVariableList { get; private init; } = null!;
@@ -8953,7 +8953,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      //unneeded
+   //unneeded
    //public class WordSymbol : ASTNode
    //{
    //   //content fields (tokens & nodes) go here.
@@ -8978,7 +8978,7 @@ namespace PascalCompiler.Parser
    //   }
    //}
 
-      public class WriteParameter : ASTNode
+   public class WriteParameter : ASTNode
    {
       public Expression Expression { get; private init; } = null!;
       public TokenNode? ColonToken { get; private init; } = null;
@@ -9087,7 +9087,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class WriteParameterList : ASTNode
+   public class WriteParameterList : ASTNode
    {
       public TokenNode OpenParenToken { get; private init; } = null!;
       public FileVariable? FileVariable { get; private init; } = null;
@@ -9154,10 +9154,11 @@ namespace PascalCompiler.Parser
                TokenNode closeParenToken = PopToken(source, ref tind);
                if (closeParenToken.Type == TokenType.CloseParen)
                {
-                  node = new WriteParameterList() 
+                  node = new WriteParameterList()
                   {
-                     MySource = source, FileLocation = openParenToken.FileLocation,
-                  
+                     MySource = source,
+                     FileLocation = openParenToken.FileLocation,
+
                      OpenParenToken = openParenToken,
                      FileVariable = fileVariable,
                      CommaToken = commaToken,
@@ -9175,7 +9176,7 @@ namespace PascalCompiler.Parser
       }
    }
 
-      public class WritelnParameterList : ASTNode
+   public class WritelnParameterList : ASTNode
    {
       public TokenNode? OpenParenToken { get; private init; } = null;
       public FileVariable? FileVariable { get; private init; } = null;
@@ -9229,7 +9230,8 @@ namespace PascalCompiler.Parser
             {
                node = new WritelnParameterList()
                {
-                  MySource = source, FileLocation = openParenToken.FileLocation,
+                  MySource = source,
+                  FileLocation = openParenToken.FileLocation,
 
                   OpenParenToken = openParenToken,
                   FileVariable = fileVariable,
@@ -9245,7 +9247,8 @@ namespace PascalCompiler.Parser
          int ttind = index;
          node ??= new WritelnParameterList()
          {
-            MySource = source, FileLocation = PopToken(source, ref ttind).FileLocation, //even if this token isn't a "openparen", this node's location still lies here.
+            MySource = source,
+            FileLocation = PopToken(source, ref ttind).FileLocation, //even if this token isn't a "openparen", this node's location still lies here.
          };
          return node;
       }
