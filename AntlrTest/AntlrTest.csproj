@@ -7,33 +7,18 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <!--<ItemGroup>
-    <PackageReference Include="Antlr4" Version="4.6.6">
-      --><!--<IncludeAssets>all</IncludeAssets>--><!--
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-	</PackageReference>
-	--><!--<PackageReference Include="Antlr4.Runtime" Version="4.6.6" />--><!--
-  </ItemGroup>-->
-
   <ItemGroup>
     <Antlr4 Include="TestGrammar.g4">
       <Generator>MSBuild:Compile</Generator>
       <CustomToolNamespace>AntlrTest</CustomToolNamespace>
     </Antlr4>
+	<Content Include="TestGrammar.g4">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</Content>
   </ItemGroup>
 
   <ItemGroup>
 	<PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
 	<PackageReference Include="Antlr4BuildTasks" Version="12.8.0" PrivateAssets="all" />
   </ItemGroup>
-
-
-  <!--<PropertyGroup>
-    <RestoreProjectStyle>PackageReference</RestoreProjectStyle>
-  </PropertyGroup>-->
-  <!--<Antlr4 Include="TestGrammar.g4">
-	<Generator>MSBuild:Compile</Generator>
-	<CustomToolNamespace>AntlrTest</CustomToolNamespace>
-  </Antlr4>-->
 </Project>

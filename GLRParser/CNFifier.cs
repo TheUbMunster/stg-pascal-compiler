@@ -367,6 +367,31 @@ namespace GLRParser
 
          //TODO: convert grammar source into list of productions.
 
+         /* Grammar Grammar:
+          * 
+          * terminal = '\'.+\'' .
+          * nonterminal = [A-Za-z-_]+ .
+          * ingredients = '(' ingredients ')' .
+          * ingredients = '[' ingredients ']' .
+          * ingredients = '{' ingredients '}' .
+          * ingredients = ingredients '|' ingredients .
+          * ingredients = ingredients ingredients .
+          * production = nonterminal '=' ingredients '.' .
+          */
+         Regex whitespace = new Regex("\\s+");
+         //todo match to nearest closing ', but match as few as possible, unless the matched ' is escaped (i.e., \') to prevent situations like '(' ')' being a single terminal containing "(' ')".
+         Regex terminal = new Regex("'.+'");
+         Regex nonterminal = new Regex("[A-Za-z-_]+");
+         Regex l_paren = new Regex("\\(");
+         Regex r_paren = new Regex("\\)");
+         Regex l_square = new Regex("\\[");
+         Regex r_square = new Regex("\\]");
+         Regex l_curly = new Regex("\\{");
+         Regex r_curly = new Regex("\\}");
+         Regex period = new Regex("\\.");
+         Regex equals = new Regex("\\=");
+         Regex pipe = new Regex("\\|");
+
          //TODO: after each transformation step(s), ensure the desired property was achieved (so that subsequent transformation methods don't need to check).
 
          if (!parsedGrammar.Any(x => x.lhs.Name == startingNonterminal))
