@@ -2,26 +2,34 @@
 
 using System.Diagnostics;
 using System.IO.MemoryMappedFiles;
+using System.Text;
+using PascalCompiler;
 
 namespace PascalCompilerUnitTests
 {
    [TestClass]
    public class LexTests
    {
+      //TODO: somehow allow for a memory mapped file or something so that SSD doesn't undergo unecessary wear.
       [TestMethod]
       public void LexHelloWorld()
       {
-         //MemoryMappedFile.CreateNew()
-         string hello = @"Program Hello:
+         string hello = 
+@"Program Hello:
 Begin
-   WriteIn('Hello, World!');
-   ReadIn;
+   WriteLn('Hello, World!');
+   ReadLn;
 End.";
-         Process.Start(new ProcessStartInfo()
+         string path = Path.GetTempFileName();
+         File.WriteAllText(path, hello);
+         string output;
+         using (MemoryStream ms = new MemoryStream())
+         using (TextWriter tw = new StreamWriter(ms))
          {
-            FileName = "PascalCompiler.exe",
-            Arguments = "-l"
-         });
+            CommandProcessor.Process(new string[] { "-no-ansi", "-l", path }, tw);
+            tw.Flush();
+            output = Encoding.UTF8.GetString(ms.ToArray());
+         }
       }
    }
 }

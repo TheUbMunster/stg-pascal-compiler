@@ -49,7 +49,6 @@ namespace PascalCompiler.Scanner
       /*LEXER*/
       public IReadOnlyList<Token> LexerTokens { get => lexerTokens; }
       private List<Token> lexerTokens = new List<Token>();
-      //private List<int> lexerTokensLineBeginnings = new List<int>();
       public int LexedUpToFileLocation { get; private set; }
       public bool HasBeenFullyLexed { get; private set; } = false;
       public IEnumerable<Token> LexerTokensFlattenedView 
@@ -64,10 +63,6 @@ namespace PascalCompiler.Scanner
             }
          }
       }
-      /// <summary>
-      /// How many lines of the source have been lexed. This is not a zero-based index.
-      /// </summary>
-      //public int LexedUpToLineNumber { get; private set; } = 0;
       /*PARSER*/
       public IReadOnlyList<ASTNode> ParserNodes { get => parserNodes; }
       private List<ASTNode> parserNodes = new List<ASTNode>();
@@ -132,22 +127,16 @@ namespace PascalCompiler.Scanner
          }
          else
          {
-            //when you add the first token past the linebreak, add it to the line beginnings
-            //when you add a linebreak, mark that line as complete.
-            //if (lexerTokensLineBeginnings.Count == 0)
-            //{
-            //   lexerTokensLineBeginnings.Add(0);
-            //}
-            //else if (lexerTokens[^1].Type == TokenType.LINEBREAK) //don't do this on the very first add.
-            //{
-            //   lexerTokensLineBeginnings.Add(lexerTokens.Count); // - 1 + 1 because we're about to insert the beginning of the line.
-            //}
-            //if (token.Type == TokenType.LINEBREAK)
-            //{
-            //   LexedUpToLineNumber++; //only want to say that a line has been completely lexed if we hit the linebreak for that line.
-            //}
             lexerTokens.Add(token);
-            LexedUpToFileLocation = token.FileLocation + token.TokenLength;
+            int tokenLocPlusLen = token.FileLocation + token.TokenLength;
+            if (tokenLocPlusLen >= LexedUpToFileLocation) //gte bc some tokens (e.g., EOF) are zero-width.
+               LexedUpToFileLocation = tokenLocPlusLen;
+            else //this means a token was added, but the token belonged *earlier* in the source?
+            {
+               //technechally we can sort by location to fix this issue, but *WTH*?
+               AppendMessage(new(CompilerPhase.Runtime, Severity.Error, $"Tokens lexed from ({Filename}) were added to the token collection out of file-order", null, true));
+               throw new Exception("An error occurred in the compiler, see the message log.");
+            }
          }
       }
 
@@ -197,7 +186,7 @@ namespace PascalCompiler.Scanner
          ErrorHasOccurred |= mesg.isError;
          messages.Add(mesg);
       }
-
+       
       public (int line, int col) GetLineColFromFileLocation(int fileLocation)
       {
          //regardless of whether it's crlf or just lf, if we see the prev index is a \n, then the current index must be a start of a line.
@@ -211,29 +200,6 @@ namespace PascalCompiler.Scanner
          int col = fileLocation - temp;
          return (line, col);
       }
-
-      /// <summary>
-      /// Gets the sequence of tokens representing the lexed form of a line of source code.
-      /// If the line of source code is fully lexed (<see cref="LexedUpToLineNumber"/>), then
-      /// the returned list is terminated by a <see cref="TokenType.LINEBREAK"/> token.
-      /// If the line of source is partially lexed, the returned list will not contain a
-      /// <see cref="TokenType.LINEBREAK"/> token, but will contain all the tokens the 
-      /// lexer was able to lex (it may not contain any tokens at all for that line).
-      /// Any attempts to request a line beyond this will return an empty list.
-      /// </summary>
-      //public List<Token> GetLexTokenSourceLine(int lineIndex)
-      //{
-      //   if (lineIndex > LexedUpToLineNumber)
-      //      return new List<Token>();
-      //   int start = lexerTokensLineBeginnings[lineIndex];
-      //   if (lexerTokensLineBeginnings.Count - 1 > lineIndex)
-      //   {
-      //      int end = lexerTokensLineBeginnings[lineIndex + 1];
-      //      return lexerTokens[start..end];
-      //   }
-      //   else
-      //      return lexerTokens[start..];
-      //}
 
       public string GetSourceLine(int lineIndex)
       {

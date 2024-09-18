@@ -12,7 +12,7 @@ using PascalCompiler.Scanner;
 
 namespace PascalCompiler
 {
-   static class CommandProcessor
+   public static class CommandProcessor
    {
       #region Consts
       private static Flag[] flagDefs = new Flag[]
@@ -100,11 +100,19 @@ namespace PascalCompiler
          List<Source> sources;
          {
             ConcurrentBag<Source> cSources = new();
+#if DEBUG
+            for (int i = 0; i < nonflags.Count; i++)
+            {
+               string path = Path.GetFullPath(nonflags[i]);
+               cSources.Add(new Source(path));
+            };
+#else
             Parallel.For(0, nonflags.Count, (i) =>
             {
                string path = Path.GetFullPath(nonflags[i]);
                cSources.Add(new Source(path));
             });
+#endif
             sources = cSources.ToList();
          }
          foreach (Source s in sources)
@@ -132,10 +140,17 @@ namespace PascalCompiler
          //=====
          // LEX
          //=====
+#if DEBUG
+         for (int i = 0; i < sources.Count; i++)
+         {
+            Lexer.Lexer.Lex(sources[i]);
+         }
+#else
          Parallel.For(0, sources.Count, (i) =>
          {
             Lexer.Lexer.Lex(sources[i]);
          });
+#endif
          foreach (Source s in sources)
          {
             foreach (Source.Message m in s.Messages)
@@ -161,10 +176,17 @@ namespace PascalCompiler
          //=======
          // PARSE
          //=======
+#if DEBUG
+         for (int i = 0; i < sources.Count; i++)
+         {
+            NewParser.Parser.Parse(sources[i]);
+         }
+#else
          Parallel.For(0, sources.Count, (i) =>
          {
             NewParser.Parser.Parse(sources[i]);
          });
+#endif
          foreach (Source s in sources)
          {
             foreach (Source.Message m in s.Messages)
@@ -266,50 +288,38 @@ namespace PascalCompiler
             { TokenType.EOF,                  "\x1b[37m" }
          };
          string lineNumbersColor = "\x1b[35m"; //magenta foreground
-
          int lgb10 = (int)System.Math.Ceiling(System.Math.Log10(source.LineCount));
-         //ConsoleColor ofg = Console.ForegroundColor, obg = Console.BackgroundColor;
-         //ConsoleColor primaryMessageColor;
          string primaryMessageColor;
-         //Console.BackgroundColor = ConsoleColor.Black;
          if (doAnsiColoring)
             outputWriter.Write("\x1b[40m"); //black background
 
          switch (message.severity)
          {
             case Source.Severity.Pedantic:
-               //primaryMessageColor = ConsoleColor.White;
-               primaryMessageColor = "\x1b[37m";
+               primaryMessageColor = "\x1b[37m"; //white foreground
                break;
             case Source.Severity.Information:
-               //primaryMessageColor = ConsoleColor.Cyan;
-               primaryMessageColor = "\x1b[36m";
+               primaryMessageColor = "\x1b[36m"; //cyan foreground
                break;
             case Source.Severity.Suggestion:
-               //primaryMessageColor = ConsoleColor.Blue;
-               primaryMessageColor = "\x1b[34m";
+               primaryMessageColor = "\x1b[34m"; //blue foreground
                break;
             case Source.Severity.Warning:
-               //primaryMessageColor = ConsoleColor.Yellow;
-               primaryMessageColor = "\x1b[33m";
+               primaryMessageColor = "\x1b[33m"; //yellow foreground
                break;
             case Source.Severity.Error:
-               //primaryMessageColor = ConsoleColor.Red;
-               primaryMessageColor = "\x1b[31m";
+               primaryMessageColor = "\x1b[31m"; //red foreground
                break;
             default:
-               //primaryMessageColor = ConsoleColor.DarkMagenta;
-               primaryMessageColor = "\x1b[35m";
+               primaryMessageColor = "\x1b[35m"; //magenta foreground
                break;
          }
          if (message.isError)
          {
-            //Console.ForegroundColor = ConsoleColor.Red;
             if (doAnsiColoring)
                outputWriter.Write("\x1b[31m"); //red foreground
             outputWriter.WriteLine("The following is an error severe enough to cause the compiler to halt:");
          }
-         //Console.ForegroundColor = primaryMessageColor;
          outputWriter.Write(primaryMessageColor);
          outputWriter.WriteLine($"{source.Filename} - [{message.phase}] [{message.severity}]: {message.message}");
          if (message.fileLocation.HasValue)
@@ -317,9 +327,7 @@ namespace PascalCompiler
             outputWriter.WriteLine($"The above error was reported to correlate to the following part of [{source.Filename}]:");
             if (doAnsiColoring)
             {
-               //Console.ForegroundColor = ConsoleColor.White;
                outputWriter.Write("\x1b[37m"); //white foreground
-               //Console.BackgroundColor = ConsoleColor.Black;
                outputWriter.Write("\x1b[40m"); //black background
             }
             var linCol = source.GetLineColFromFileLocation(message.fileLocation.Value);
@@ -331,12 +339,13 @@ namespace PascalCompiler
                {
                   if (doAnsiColoring)
                   {
-                     //Console.ForegroundColor = ConsoleColor.DarkMagenta;
                      outputWriter.Write("\x1b[40m"); //black background
                      outputWriter.Write(lineNumbersColor);
                   }
                   outputWriter.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} "); //print line number
 
+                  //this is to get the tokens that represent the n'th line of source code
+                  //it could be made more efficient but would require a partial refactor of `Source`.
                   IEnumerable<Token> toksOfThisLine = source.LexerTokensFlattenedView;
                   int skipLines = desiredLine;
                   while (skipLines > 0)
@@ -357,21 +366,15 @@ namespace PascalCompiler
                   //is fully complete lexed line (+++)
                   //is partially complete lexed line (single) (TODO)
                   //is not lexed (+++)
-                  if (toksOfThisLine.Any())
+                  if (toksOfThisLine.Any()) //if fully complete lexed line, or partially complete lexed line
                   {
                      int printedLength = 0;
                      foreach (Token tok in toksOfThisLine)
                      //for (int tk = 0; tk < toks.Count; tk++)
                      {
+                        //this *should* be the last token in toksOfThisLine. Consider not doing "include linebreak itself" above.
                         if (tok.Type == TokenType.LINEBREAK)
-                        {
-                           continue; //this *should* be the last token in toksOfThisLine. Consider not doing "include linebreak itself" above.
-                           //if (tk != toks.Count - 1)
-                           //{ //there's a linebreak and it isn't the last token in the line? WTH?
-
-                           //}
-                           //else continue;
-                        }
+                           continue;
                         if (doAnsiColoring)
                         {
                            //Console.ForegroundColor = lexemColors[toks[tk].Type];
@@ -381,20 +384,14 @@ namespace PascalCompiler
                         printedLength += tok.TokenLength; //should we include the lengths of linebreaks?
                      }
                      if (doAnsiColoring)
-                     {
-                        //Console.ForegroundColor = ConsoleColor.White;
-                        outputWriter.Write("\x1b[37m");
-                     }
+                        outputWriter.Write("\x1b[37m"); //white foreground
                      string remainder = source.GetSourceLine(desiredLine).Substring(printedLength);
                      outputWriter.WriteLine(remainder);
                   }
                   else
                   {
                      if (doAnsiColoring)
-                     {
-                        //Console.ForegroundColor = ConsoleColor.White;
-                        outputWriter.Write("\x1b[37m");
-                     }
+                        outputWriter.Write("\x1b[37m"); //white foreground
                      outputWriter.WriteLine($"{source.GetSourceLine(desiredLine)}");
                   }
                   if (i == 0)
@@ -403,10 +400,8 @@ namespace PascalCompiler
                      //TODO: if it's really close to the left edge, make the arrow enter from the right instead.
                      if (doAnsiColoring)
                      {
-                        //Console.ForegroundColor = ConsoleColor.Black;
-                        outputWriter.Write("\x1b[30m");
-                        //Console.BackgroundColor = ConsoleColor.White;
-                        outputWriter.Write("\x1b[47m");
+                        outputWriter.Write("\x1b[30m"); //black foreground
+                        outputWriter.Write("\x1b[47m"); //white background
                      }
                      string preamble = "error here ", pointer = "----^";
                      int horizLen = linCol.col + 1 + lgb10 + 1;
@@ -418,10 +413,8 @@ namespace PascalCompiler
                         outputWriter.WriteLine(pointer.Substring(pointer.Length - horizLen));
                      if (doAnsiColoring)
                      {
-                        //Console.ForegroundColor = ConsoleColor.White;
-                        outputWriter.Write("\x1b[37m");
-                        //Console.BackgroundColor = ConsoleColor.Black;
-                        outputWriter.Write("\x1b[40m");
+                        outputWriter.Write("\x1b[37m"); //white foreground
+                        outputWriter.Write("\x1b[40m"); //black background
                      }
                   }
                }
@@ -431,8 +424,6 @@ namespace PascalCompiler
          {
             outputWriter.WriteLine("The above error was not reported to correlate to any particular part of the source code.");
          }
-         //Console.ForegroundColor = ofg;
-         //Console.BackgroundColor = obg;
       }
    }
 }
