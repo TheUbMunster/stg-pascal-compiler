@@ -123,9 +123,8 @@ namespace PascalCompiler.Lexer
       //comment needs to be higher than parens for (* *)'s sake
       /*DYNAMIC*/ Comment = 1000, // (see 6.1.8)
       //not explicit in the spec, but useful for this implementation
-      WHITESPACE = 65536, //not including cr or lf
+      WHITESPACE = 30000, //not including cr or lf
       //needs to be higher than whsp
-      LINEBREAK = 65537,
-      //EOF may be necessary to make an LR parser impl easier.
-   }
+      LINEBREAK = 30001,
+      EOF = 30002   }
 }

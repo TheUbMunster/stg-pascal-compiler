@@ -103,9 +103,11 @@ namespace PascalCompiler.Lexer
          { TokenType.Comment, new Regex("\\G({|\\(\\*)(.|\\n)*?(}|\\*\\))", RegexOptions.Compiled) }, //we don't have to worry about filtering the ., because the scan step already did that
 
          //not explicit via spec, but useful for this implementation.
-         { TokenType.WHITESPACE, new Regex("\\G[ \\t]+", RegexOptions.Compiled) },
+         { TokenType.WHITESPACE, new Regex("\\G[ \\t]+", RegexOptions.Compiled) }, //spaces and tabs
          { TokenType.LINEBREAK, new Regex("\\G(\r\n?|\n)", RegexOptions.Compiled) },
+         { TokenType.EOF, new Regex("\\G\\z", RegexOptions.Compiled) }
       };
+      public static readonly HashSet<TokenType> absorbedTypes = new HashSet<TokenType> { TokenType.Comment, TokenType.WHITESPACE, TokenType.LINEBREAK };
       #endregion
 
       #region Creation
@@ -125,6 +127,11 @@ namespace PascalCompiler.Lexer
 
       #region Fields
       private Source MySource { get; init; } = null!;
+      /// <summary>
+      /// Semantically irrelevant tokens that got absorbed into this token. These tokens are in-order as they appear in
+      /// the source, and all belonged *before* this token in occurance.
+      /// </summary>
+      public IReadOnlyList<Token> AbsorbedTokens { get; set; }
       public TokenType Type { get; private init; }
       public Regex Reg { get; private init; } = null!;
       //These three are assigned by the lexer.
@@ -159,14 +166,31 @@ namespace PascalCompiler.Lexer
          TokenType max = TTMax();
          int index = 0;//, newlineCount = 0, lastNewLineIndex = 0;
          TokenType attempt = max;
-         while (index < source.FileContents.Length)
+         List<Token> pendingAbsorbableTokens = new List<Token>();
+         while (true) //index < source.FileContents.Length
          {
             Token? t = Token.TryCreateToken(source, attempt, index);
             if (t != null)
             {
                attempt = max;
                index += t.TokenLength;
-               source.AddLexerToken(t);
+               //All files are finite in size, thus, EOF will always happen. Since it's not absorbable, it will always
+               //capture any "dangling" absorbable tokens.
+               if (Token.absorbedTypes.Contains(t.Type))
+                  pendingAbsorbableTokens.Add(t);
+               else
+               {
+                  t.AbsorbedTokens = pendingAbsorbableTokens;
+                  pendingAbsorbableTokens = new List<Token>();
+                  source.AddLexerToken(t);
+               }
+               if (t.Type == TokenType.EOF)
+                  break;
+               else if (t.TokenLength == 0) //if the token length isn't 0 and yet it didn't advance the index
+               {
+                  source.AppendMessage(new(Source.CompilerPhase.Lexer, Source.Severity.Error, $"Unable to lex {source.Filename} due to unadvancing index", index, true));
+                  return;
+               }
             }
             else
             {
@@ -175,6 +199,10 @@ namespace PascalCompiler.Lexer
                   attempt = dec.Value;
                else
                {
+                  //although normally we want to absorb them into a non-absorbable token, just append them to the
+                  //token stream purely for the benefit of error reporting. This isn't *as* critical, because at
+                  //this point we've discovered this source code not *not compilable*.
+                  pendingAbsorbableTokens.ForEach(x => { x.AbsorbedTokens = new List<Token>(); source.AddLexerToken(x); }); 
                   source.AppendMessage(new(Source.CompilerPhase.Lexer, Source.Severity.Error, $"Unable to lex {source.Filename}", index, true));
                   return;
                }

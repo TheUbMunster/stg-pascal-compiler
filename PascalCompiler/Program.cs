@@ -3,6 +3,7 @@
 using PascalCompiler.Lexer;
 using System.Text.RegularExpressions;
 using System.Text;
+using System;
 
 namespace PascalCompiler
 {
@@ -21,7 +22,7 @@ namespace PascalCompiler
 #if DEBUG
          Console.WriteLine("THIS IS A DEBUG BUILD");
 #endif
-         CommandProcessor.Process(args);
+         CommandProcessor.Process(args, Console.Out);
       }
    }
 }

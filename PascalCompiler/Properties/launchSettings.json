@@ -2,7 +2,7 @@
   "profiles": {
     "PascalCompiler": {
       "commandName": "Project",
-      "commandLineArgs": "-p Test-Pascal-Scripts\\Factorial.pas"
+      "commandLineArgs": "-l Test-Pascal-Scripts\\Factorial.pas"
     }
   }
 }
