@@ -327,7 +327,8 @@ namespace PascalCompiler
                outputWriter.Write("\x1b[31m"); //red foreground
             outputWriter.WriteLine("The following is an error severe enough to cause the compiler to halt:");
          }
-         outputWriter.Write(primaryMessageColor);
+         if (doAnsiColoring)
+            outputWriter.Write(primaryMessageColor);
          outputWriter.WriteLine($"{source.Filename} - [{message.phase}] [{message.severity}]: {message.message}");
          if (message.fileLocation.HasValue)
          {
@@ -392,6 +393,8 @@ namespace PascalCompiler
                      }
                      if (doAnsiColoring)
                         outputWriter.Write("\x1b[37m"); //white foreground
+                     //BUG: if a comment consumed a newline across this line, substring may cross line boundaries
+                     //that .GetSourceLine can't handle.
                      string remainder = source.GetSourceLine(desiredLine).Substring(printedLength);
                      outputWriter.WriteLine(remainder);
                   }
@@ -406,23 +409,20 @@ namespace PascalCompiler
                      //print a pointer to the exact character where the error is, but print it in a way where there's room.
                      //TODO: if it's really close to the left edge, make the arrow enter from the right instead.
                      if (doAnsiColoring)
+                        outputWriter.Write("\x1b[40m"); //black background
+                     string left = "error here ----^", right = "^---- error here";
+                     int horizLen = linCol.col + 1 + lgb10 + 1;
+                     bool chooseLeft = horizLen >= left.Length;
+                     outputWriter.Write(new string(' ', horizLen - (chooseLeft ? left.Length : 1)));
+                     if (doAnsiColoring)
                      {
                         outputWriter.Write("\x1b[30m"); //black foreground
                         outputWriter.Write("\x1b[47m"); //white background
                      }
-                     string preamble = "error here ", pointer = "----^";
-                     int horizLen = linCol.col + 1 + lgb10 + 1;
-                     if (horizLen >= preamble.Length + pointer.Length)
-                        outputWriter.WriteLine($"{preamble}{pointer}".PadLeft(horizLen));
-                     else if (horizLen >= pointer.Length)
-                        outputWriter.WriteLine($"{pointer}".PadLeft(horizLen));
+                     if (chooseLeft)
+                        outputWriter.WriteLine(left);
                      else
-                        outputWriter.WriteLine(pointer.Substring(pointer.Length - horizLen));
-                     if (doAnsiColoring)
-                     {
-                        outputWriter.Write("\x1b[37m"); //white foreground
-                        outputWriter.Write("\x1b[40m"); //black background
-                     }
+                        outputWriter.WriteLine(right);
                   }
                }
             }

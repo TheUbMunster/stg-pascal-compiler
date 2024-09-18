@@ -7,6 +7,6 @@ begin
     fact := 1;
     for i := 1 to num do
         fact := fact * i; (*factorialize
-        yes yes*) 
+        yes yes*) __
     writeln('Factorial of ', num, ' is: ', fact);
 end.

@@ -8,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PascalCompiler.Scanner
 {
-    static class LegalCharacterSet
+    public static class LegalCharacterSet
     {
         #region Consts
         //this is the list of every character that can appear within a pascal program.
