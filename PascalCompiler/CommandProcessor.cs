@@ -44,6 +44,13 @@ namespace PascalCompiler
          //new Flag("n", "The output name of the log file or executable", new string[] { }), //todo: implement logging
          //todo: add "interpret" flag
       };
+      public static readonly string scanSucceedMessage = "Success: scan check complete";
+      public static readonly string lexSucceedMessage = "Success: lexical analysis complete";
+      public static readonly string parseSucceedMessage = "Success: parsing complete";
+
+      public static readonly string scanFailMessage = "Compilation failed at the SourceScan stage";
+      public static readonly string lexFailMessage = "Compilation failed at the Lexer stage";
+      public static readonly string parseFailMessage = "Compilation failed at the Parser stage";
       #endregion
 
       #region Typedefs
@@ -125,7 +132,7 @@ namespace PascalCompiler
          }
          if (sources.Any(s => s.ErrorHasOccurred))
          {
-            outputWriter.WriteLine("Compilation failed at the SourceScan stage.");
+            outputWriter.WriteLine(scanFailMessage);
             return -1;
          }
          if (flags.Contains("r"))
@@ -134,7 +141,7 @@ namespace PascalCompiler
             //{
             //   Console.WriteLine("idk");
             //}
-            outputWriter.WriteLine("Compilation succeeded: scan check complete");
+            outputWriter.WriteLine(scanSucceedMessage);
             return 0;
          }
          //=====
@@ -161,7 +168,7 @@ namespace PascalCompiler
          }
          if (sources.Any(s => s.ErrorHasOccurred))
          {
-            outputWriter.WriteLine("Compilation failed at the Lexer stage.");
+            outputWriter.WriteLine(lexFailMessage);
             return -1;
          }
          if (flags.Contains("l"))
@@ -170,7 +177,7 @@ namespace PascalCompiler
             {
                outputWriter.WriteLine(string.Join("\n", s.LexerTokensFlattenedView));
             }
-            outputWriter.WriteLine("Compilation succeeded: lexical analysis complete");
+            outputWriter.WriteLine(lexSucceedMessage);
             return 0;
          }
          //=======
@@ -197,7 +204,7 @@ namespace PascalCompiler
          }
          if (sources.Any(s => s.ErrorHasOccurred))
          {
-            outputWriter.WriteLine("Compilation failed at the Lexer stage.");
+            outputWriter.WriteLine(parseFailMessage);
             return -1;
          }
          if (flags.Contains("p"))
@@ -206,7 +213,7 @@ namespace PascalCompiler
             {
                outputWriter.WriteLine(string.Join("\n", s.LexerTokens));
             }
-            outputWriter.WriteLine("Compilation succeeded: parsing complete");
+            outputWriter.WriteLine(parseSucceedMessage);
             return 0;
          }
          //===========

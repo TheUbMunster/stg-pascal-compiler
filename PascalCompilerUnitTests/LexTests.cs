@@ -30,6 +30,7 @@ End.";
             tw.Flush();
             output = Encoding.UTF8.GetString(ms.ToArray());
          }
+         Assert.IsTrue(output.Contains(CommandProcessor.lexSucceedMessage));
       }
    }
 }
