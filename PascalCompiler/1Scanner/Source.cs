@@ -40,6 +40,8 @@ namespace PascalCompiler.Scanner
 
       #region Consts
       private static readonly Regex linebreak = new Regex("(\r\n?|\n)", RegexOptions.Compiled);
+      //only matches if there's a linebreak @ startIndex specified by linebreakNow.Match(str, startIndex)
+      private static readonly Regex linebreakNow = new Regex("\\G(\r\n?|\n)", RegexOptions.Compiled);
       #endregion
 
       #region Fields
@@ -193,40 +195,32 @@ namespace PascalCompiler.Scanner
 
       public (int line, int col) GetLineColFromFileLocation(int fileLocation)
       {
-         Regex linebreakNow = new Regex("\\G(\r\n?|\n)");
-         //regardless of whether it's crlf or just lf, if we see the prev index is a \n, then the current index must be a start of a line.
          int temp = fileLocation;
-         //while (temp >= 0 && FileContents[temp] != '\n') //todo fix me \r \n \r\n
          Match m = null!;
          while (temp >= 0 && !(m = linebreakNow.Match(FileContents, temp)).Success)
          {
-            temp--;
+            temp--; //walk back to the nearest linebreak to `fileLocation`
          }
-         temp += m.Length; //we don't care about \n, we need to move forward one char.
+         if (temp >= 0)
+            temp += m.Length; //move forward the length of the match, so the index
+         else
+            temp = 0; //there is no prior linebreak because we're at the beginning of the file.
          //zero based line index
          int line = lineBeginnings.IndexOf(temp);
          int col = fileLocation - temp; //carat - filelocation of this line
          return (line, col);
       }
 
+      /// <summary>
+      /// Returns the fileLocation corresponding to a 0-based line index.
+      /// </summary>
+      /// <param name="lineIndex">The 0-based line index to get the fileLocation of</param>
+      /// <returns>The fileLocation corresponding to <paramref name="lineIndex"/>, or -1 if beyond <c>EOF</c></returns>
       public int GetFileLocFromLineIndex(int lineIndex)
       {
          if (lineIndex < lineBeginnings.Count)
          {
             return lineBeginnings[lineIndex];
-            //int lineStart = lineBeginnings[lineIndex];
-            //string line;
-            //if (lineIndex < lineBeginnings.Count - 1) //if this isn't the last line in the file
-            //{
-            //   int nextLineStart = lineBeginnings[lineIndex + 1];  //todo fix me \r \n \r\n
-            //   if (FileContents[nextLineStart - 2] == '\r') //check whether crlf or lf
-            //      line = FileContents.Substring(lineStart, nextLineStart - lineStart - 2);
-            //   else
-            //      line = FileContents.Substring(lineStart, nextLineStart - lineStart - 1);
-            //}
-            //else
-            //   line = FileContents.Substring(lineStart); //this is the last line
-            //return line;
          }
          else
          {
