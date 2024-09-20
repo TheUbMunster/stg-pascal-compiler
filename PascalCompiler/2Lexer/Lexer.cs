@@ -20,6 +20,7 @@ namespace PascalCompiler.Lexer
    {
       #region Consts
       public static readonly Token UndefinedToken = new Token() { Type = TokenType.UNDEFINED };
+      //https://learn.microsoft.com/en-us/dotnet/standard/base-types/regular-expression-source-generators?pivots=dotnet-8-0
       private static readonly IReadOnlyDictionary<TokenType, Regex> regexes = new Dictionary<TokenType, Regex>()
       {
          //word-symbol (see 6.1.2)

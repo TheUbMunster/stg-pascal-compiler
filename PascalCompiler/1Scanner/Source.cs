@@ -38,6 +38,10 @@ namespace PascalCompiler.Scanner
       public record struct Message(CompilerPhase phase, Severity severity, string message, int? fileLocation, bool isError = false);
       #endregion
 
+      #region Consts
+      private static readonly Regex linebreak = new Regex("(\r\n?|\n)", RegexOptions.Compiled);
+      #endregion
+
       #region Fields
       public IReadOnlyList<Message> Messages { get => messages; }
       private List<Message> messages = new List<Message>();
@@ -102,7 +106,7 @@ namespace PascalCompiler.Scanner
             }
          });
          //TODO: apparently cr, lf, and crlf are all a thing. fix this, and anything else that does this sort of thing.
-         MatchCollection linebreaks = Regex.Matches(fileContent, "(\r\n?|\n)");
+         MatchCollection linebreaks = linebreak.Matches(fileContent);
          IEnumerable<string> distinctLineBreaks = linebreaks.Select(x => x.Value).Distinct();
          if (distinctLineBreaks.Count() != 1)
          {
@@ -112,7 +116,7 @@ namespace PascalCompiler.Scanner
          {
             AppendMessage(new Message(CompilerPhase.SourceScan, Severity.Warning, "You use old-mac style line endings (CR), using this source code file with other computers could break compatibility.", null, false));
          }
-         lineBeginnings = linebreaks.Select(x => x.Index + x.Value.Length).Prepend(0).ToList();
+         lineBeginnings = linebreaks.Select(x => x.Index + x.Length).Prepend(0).ToList();
          FileContents = fileContent;
       }
       #endregion
@@ -186,43 +190,49 @@ namespace PascalCompiler.Scanner
          ErrorHasOccurred |= mesg.isError;
          messages.Add(mesg);
       }
-       
+
       public (int line, int col) GetLineColFromFileLocation(int fileLocation)
       {
+         Regex linebreakNow = new Regex("\\G(\r\n?|\n)");
          //regardless of whether it's crlf or just lf, if we see the prev index is a \n, then the current index must be a start of a line.
          int temp = fileLocation;
-         while (temp >= 0 && FileContents[temp] != '\n') //todo fix me \r \n \r\n
+         //while (temp >= 0 && FileContents[temp] != '\n') //todo fix me \r \n \r\n
+         Match m = null!;
+         while (temp >= 0 && !(m = linebreakNow.Match(FileContents, temp)).Success)
          {
             temp--;
          }
-         temp += 1; //we don't care about \n, we need to move forward one char.
+         temp += m.Length; //we don't care about \n, we need to move forward one char.
+         //zero based line index
          int line = lineBeginnings.IndexOf(temp);
-         int col = fileLocation - temp;
+         int col = fileLocation - temp; //carat - filelocation of this line
          return (line, col);
       }
 
-      public string GetSourceLine(int lineIndex)
+      public int GetFileLocFromLineIndex(int lineIndex)
       {
          if (lineIndex < lineBeginnings.Count)
          {
-            int lineStart = lineBeginnings[lineIndex];
-            string line;
-            if (lineIndex < lineBeginnings.Count - 1) //if this isn't the last line in the file
-            {
-               int nextLineStart = lineBeginnings[lineIndex + 1];  //todo fix me \r \n \r\n
-               if (FileContents[nextLineStart - 2] == '\r') //check whether crlf or lf
-                  line = FileContents.Substring(lineStart, nextLineStart - lineStart - 2);
-               else
-                  line = FileContents.Substring(lineStart, nextLineStart - lineStart - 1);
-            }
-            else
-               line = FileContents.Substring(lineStart); //this is the last line
-            return line;
+            return lineBeginnings[lineIndex];
+            //int lineStart = lineBeginnings[lineIndex];
+            //string line;
+            //if (lineIndex < lineBeginnings.Count - 1) //if this isn't the last line in the file
+            //{
+            //   int nextLineStart = lineBeginnings[lineIndex + 1];  //todo fix me \r \n \r\n
+            //   if (FileContents[nextLineStart - 2] == '\r') //check whether crlf or lf
+            //      line = FileContents.Substring(lineStart, nextLineStart - lineStart - 2);
+            //   else
+            //      line = FileContents.Substring(lineStart, nextLineStart - lineStart - 1);
+            //}
+            //else
+            //   line = FileContents.Substring(lineStart); //this is the last line
+            //return line;
          }
          else
          {
-            AppendMessage(new(CompilerPhase.Runtime, Severity.Error, "During the compiler's attempt to report a line(s) of code, the compiler attempted to refer to a non-existent line of code", null, true));
-            throw new Exception("An error occurred in the compiler, see the message log.");
+            //AppendMessage(new(CompilerPhase.Runtime, Severity.Error, "During the compiler's attempt to report a line(s) of code, the compiler attempted to refer to a non-existent line of code", null, true));
+            //throw new Exception("An error occurred in the compiler, see the message log.");
+            return -1;
          }
       }
       #endregion

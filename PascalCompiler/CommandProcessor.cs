@@ -9,6 +9,7 @@ using System.IO;
 using System.Threading.Tasks;
 using PascalCompiler.Lexer;
 using PascalCompiler.Scanner;
+using System;
 
 namespace PascalCompiler
 {
@@ -67,6 +68,7 @@ namespace PascalCompiler
       public static int Process(string[] args, TextWriter outputWriter)
       {
          //overhaul this so flags and nonflags orderings are preserved.
+         //also strip empty entries?
          IReadOnlyList<string> flags = args.Where(x => x.StartsWith("-")).Select(x => x.Substring(1)).ToList();
          IReadOnlyList<string> nonflags = args.Where(x => !x.StartsWith("-")).ToList();
          //check for help
@@ -124,6 +126,9 @@ namespace PascalCompiler
          }
          foreach (Source s in sources)
          {
+            //TODO: change this so that messages are only read out
+            //    1. at the very end
+            //    2. when an error occurs, just before exiting
             foreach (Source.Message m in s.Messages)
             {
                PrintMessage(s, m, outputWriter, !flags.Contains("no-ansi"));
@@ -224,6 +229,15 @@ namespace PascalCompiler
       }
       public static void PrintMessage(Source source, Source.Message message, TextWriter outputWriter, bool doAnsiColoring)
       {
+         (TokenType tt, int len) GetTokenTypeAtFileLocation(int fileLocation)
+         {
+            foreach (Token tok in source.LexerTokensFlattenedView)
+            {
+               if (tok.FileLocation <= fileLocation && fileLocation < tok.FileLocation + tok.TokenLength)
+                  return (tok.Type, (tok.FileLocation + tok.TokenLength) - fileLocation);
+            }
+            throw new NotImplementedException();
+         }
          //string is ansi color code https://talyian.github.io/ansicolors/
          IReadOnlyDictionary<TokenType, string> lexemColors = new Dictionary<TokenType, string>()
          {
@@ -343,7 +357,7 @@ namespace PascalCompiler
             for (int i = -windowSize; i < windowSize + 1; i++)
             {
                int desiredLine = linCol.line + i; //0 based line index
-               if (desiredLine >= 0 && desiredLine < source.LineCount)
+               if (desiredLine >= 0 && desiredLine < source.LineCount) //so long as the line is within the file bounds
                {
                   if (doAnsiColoring)
                   {
@@ -352,62 +366,158 @@ namespace PascalCompiler
                   }
                   outputWriter.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} "); //print line number
 
+                  int desiredLineFileLoc = source.GetFileLocFromLineIndex(desiredLine);
+                  int desiredLinePlusOneFileLoc = source.GetFileLocFromLineIndex(desiredLine + 1);
+                  string normalLine;
+                  if (desiredLinePlusOneFileLoc != -1)
+                     normalLine = source.FileContents.Substring(desiredLineFileLoc, desiredLinePlusOneFileLoc - desiredLineFileLoc);
+                  else
+                     normalLine = source.FileContents.Substring(desiredLineFileLoc);
+                  int desiredLineLen = normalLine.Length; //calculated afterwards via string incase of -1
+
+                  if (doAnsiColoring)
+                  {
+                     for (int ind = 0; ind < desiredLineLen;)
+                     {
+                        int writtenLength;
+                        if (ind + desiredLineFileLoc < source.LexedUpToFileLocation)
+                        {
+                           var res = GetTokenTypeAtFileLocation(ind + desiredLineFileLoc);
+                           outputWriter.Write(lexemColors[res.tt]);
+                           writtenLength = res.len;
+                           //the colored length reported might be much longer than we even have left to print
+                           //e.g., multiline comment (but we only want to substring `normalLine` & print for this line)
+                           writtenLength = writtenLength + ind > desiredLineLen ? desiredLineLen - ind : writtenLength;
+                        }
+                        else
+                        {
+                           outputWriter.Write("\x1b[37m"); //white foreground
+                           writtenLength = desiredLineLen - ind;
+                        }
+                        if (writtenLength != -1)
+                           outputWriter.Write(normalLine.Substring(ind, writtenLength));
+                        else
+                           outputWriter.Write(normalLine.Substring(ind));
+                        ind += writtenLength;
+                     }
+                  }
+                  else
+                  {
+                     outputWriter.Write(normalLine);
+                  }
+
+                  //List<(string portion, TokenType tt)> coloredLinePortions = new();
+                  //foreach (Token t in source.LexerTokensFlattenedView)
+                  //{
+                  //   //if 0, then this token exactly starts at the desiredLineFileLoc
+                  //   //if negative, then this token's start is before this line (but it might end *in* this line)
+                  //   //if positive, then this token's start is after this line (but the start might be *in* this line)
+                  //   int startIndex = t.FileLocation - desiredLineFileLoc;
+                  //   //if 0, then this token *ended exactly at the end of the desired line*
+                  //   //if negative, then this token ended before this line
+                  //   //if positive, then this token's end 
+                  //   int endIndex = (t.FileLocation + t.TokenLength) - desiredLinePlusOneFileLoc;
+                  //   //scenarios:
+                  //   // prev line    desired line            next line
+                  //   //-------------|-----------------------|----------------
+                  //   //negative start index, negative end index
+                  //   //        |           |
+                  //   t.Content.Substring(startIndex);
+                  //}
+
+                  //this IEnumerable is walked forward to the token *at* the beginning of "desiredLine"
+                  //or if no token exists exactly at that file location, the token just before it.
+                  //IEnumerable<Token> startingAtOrJustBeforeThisLine = source.LexerTokensFlattenedView;
+                  //startingAtOrJustBeforeThisLine = startingAtOrJustBeforeThisLine
+                  //   .SkipWhile(x => x.FileLocation < desiredLineFileLoc);
+                  //if (startingAtOrJustBeforeThisLine.First().FileLocation > desiredLineFileLoc)
+                  //   startingAtOrJustBeforeThisLine.Prepend()
+
+
+
                   //this is to get the tokens that represent the n'th line of source code
                   //it could be made more efficient but would require a partial refactor of `Source`.
-                  IEnumerable<Token> toksOfThisLine = source.LexerTokensFlattenedView;
-                  int skipLines = desiredLine;
-                  while (skipLines > 0)
-                  {
-                     toksOfThisLine = toksOfThisLine.SkipWhile(x => x.Type != TokenType.LINEBREAK);
-                     toksOfThisLine = toksOfThisLine.Skip(1);
-                     skipLines--;
-                  }
-                  {
-                     List<Token> temp = toksOfThisLine.ToList();
-                     int ind = temp.FindIndex(x => x.Type == TokenType.LINEBREAK);
-                     if (ind != -1)
-                        toksOfThisLine = temp.Take(ind + 1); //include linebreak itself
-                     else
-                        toksOfThisLine = temp;
-                  }
+                  //IEnumerable<Token> toksOfThisLine = source.LexerTokensFlattenedView;
+                  //int skipLines = desiredLine;
+                  //while (skipLines > 0)
+                  //{
+                  //   toksOfThisLine = toksOfThisLine.SkipWhile(x => x.Type != TokenType.LINEBREAK);
+                  //   toksOfThisLine = toksOfThisLine.Skip(1);
+                  //   skipLines--;
+                  //}
+                  //{
+                  //   List<Token> temp = toksOfThisLine.ToList();
+                  //   int ind = temp.FindIndex(x => x.Type == TokenType.LINEBREAK);
+                  //   if (ind != -1)
+                  //      toksOfThisLine = temp.Take(ind + 1); //include linebreak itself
+                  //   else
+                  //      toksOfThisLine = temp;
+                  //}
+
+
+
+
+
+
+
                   //3 cases:
                   //is fully complete lexed line (+++)
                   //is partially complete lexed line (single) (TODO)
                   //is not lexed (+++)
-                  if (toksOfThisLine.Any()) //if fully complete lexed line, or partially complete lexed line
-                  {
-                     int printedLength = 0;
-                     foreach (Token tok in toksOfThisLine)
-                     //for (int tk = 0; tk < toks.Count; tk++)
-                     {
-                        //this *should* be the last token in toksOfThisLine. Consider not doing "include linebreak itself" above.
-                        if (tok.Type == TokenType.LINEBREAK)
-                           continue;
-                        if (doAnsiColoring)
-                        {
-                           //Console.ForegroundColor = lexemColors[toks[tk].Type];
-                           outputWriter.Write(lexemColors[tok.Type]);
-                        }
-                        outputWriter.Write(tok.Content);
-                        printedLength += tok.TokenLength; //should we include the lengths of linebreaks?
-                     }
-                     if (doAnsiColoring)
-                        outputWriter.Write("\x1b[37m"); //white foreground
-                     //BUG: if a comment consumed a newline across this line, substring may cross line boundaries
-                     //that .GetSourceLine can't handle.
-                     string remainder = source.GetSourceLine(desiredLine).Substring(printedLength);
-                     outputWriter.WriteLine(remainder);
-                  }
-                  else
-                  {
-                     if (doAnsiColoring)
-                        outputWriter.Write("\x1b[37m"); //white foreground
-                     outputWriter.WriteLine($"{source.GetSourceLine(desiredLine)}");
-                  }
+                  //if (toksOfThisLine.Any()) //if fully complete lexed line, or partially complete lexed line
+                  //{
+                  //   int printedLength = 0;
+                  //   foreach (Token tok in toksOfThisLine)
+                  //   //for (int tk = 0; tk < toks.Count; tk++)
+                  //   {
+                  //      //this *should* be the last token in toksOfThisLine. Consider not doing "include linebreak itself" above.
+                  //      if (tok.Type == TokenType.LINEBREAK)
+                  //         continue;
+                  //      if (doAnsiColoring)
+                  //      {
+                  //         //Console.ForegroundColor = lexemColors[toks[tk].Type];
+                  //         outputWriter.Write(lexemColors[tok.Type]);
+                  //      }
+                  //      outputWriter.Write(tok.Content);
+                  //      printedLength += tok.TokenLength; //should we include the lengths of linebreaks?
+                  //   }
+                  //   if (doAnsiColoring)
+                  //      outputWriter.Write("\x1b[37m"); //white foreground
+                  //   //BUG: if a comment consumed a newline across this line, substring may cross line boundaries
+                  //   //that .GetSourceLine can't handle.
+                  //   //string remainder = source.GetSourceLine(desiredLine).Substring(printedLength);
+
+                  //   //need to print from "desiredLine + printedLength" to [next linebreak]
+                  //   int start = source.GetFileLocFromLineIndex(desiredLine);
+                  //   int end = source.GetFileLocFromLineIndex(desiredLine + 1);
+                  //   string line;
+                  //   if (end != -1)
+                  //      line = source.FileContents.Substring(start, end - start);
+                  //   else
+                  //      line = source.FileContents.Substring(start);
+                  //   line = line.Substring(printedLength);
+                  //   outputWriter.WriteLine(line);
+                  //}
+                  //else
+                  //{
+                  //   if (doAnsiColoring)
+                  //      outputWriter.Write("\x1b[37m"); //white foreground
+                  //   //outputWriter.WriteLine($"{source.GetSourceLine(desiredLine)}");
+                  //   //int start = source.GetFileLocFromLineIndex(desiredLine);
+                  //   //int end = source.GetFileLocFromLineIndex(desiredLine + 1);
+                  //   //string line;
+                  //   //if (end != -1)
+                  //   //   line = source.FileContents.Substring(start, end - start);
+                  //   //else
+                  //   //   line = source.FileContents.Substring(start);
+                  //   //outputWriter.WriteLine(line);
+                  //}
                   if (i == 0)
                   {
+
                      //print a pointer to the exact character where the error is, but print it in a way where there's room.
-                     //TODO: if it's really close to the left edge, make the arrow enter from the right instead.
+                     if (source.LineCount == desiredLine + 1) //0 based index
+                        outputWriter.Write('\n'); //need to insert newline bc the line we're reporting on is the very last line of the file
                      if (doAnsiColoring)
                         outputWriter.Write("\x1b[40m"); //black background
                      string left = "error here ----^", right = "^---- error here";
@@ -426,6 +536,12 @@ namespace PascalCompiler
                   }
                }
             }
+            if (doAnsiColoring)
+            {
+               outputWriter.Write("\x1b[37m"); //white foreground
+               outputWriter.Write("\x1b[40m"); //black background
+            }
+            outputWriter.Write('\n');
          }
          else
          {

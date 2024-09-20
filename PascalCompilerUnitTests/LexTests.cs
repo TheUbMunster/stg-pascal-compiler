@@ -13,63 +13,167 @@ namespace PascalCompilerUnitTests
       //TODO: somehow allow for a memory mapped file or something so that SSD doesn't undergo unecessary wear.
 
       [TestMethod]
-      public void ScanGoodCharacters()
+      [DataRow(true)]
+      [DataRow(false)]
+      public void ScanGoodCharacters(bool doAnsi)
       {
          //concatenation of all legal characters.
-         string source = new string(PascalCompiler.Scanner.LegalCharacterSet.legalChars);
-         string path = Path.GetTempFileName();
-         File.WriteAllText(path, source);
+         string sourceCode = new string(PascalCompiler.Scanner.LegalCharacterSet.legalChars);
          string output;
-         using (MemoryStream ms = new MemoryStream())
-         using (TextWriter tw = new StreamWriter(ms))
+         using (DisposableFile df = new DisposableFile())
          {
-            CommandProcessor.Process(new string[] { "-no-ansi", "-r", path }, tw);
-            tw.Flush();
-            output = Encoding.UTF8.GetString(ms.ToArray());
+            File.WriteAllText(df.FilePath, sourceCode);
+            using (MemoryStream ms = new MemoryStream())
+            using (TextWriter tw = new StreamWriter(ms))
+            {
+               string[] args;
+               if (doAnsi)
+                  args = new string[] { "-r", df.FilePath };
+               else
+                  args = new string[] { "-no-ansi", "-r", df.FilePath };
+               CommandProcessor.Process(args, tw);
+               tw.Flush();
+               output = Encoding.UTF8.GetString(ms.ToArray());
+            }
          }
          Assert.IsTrue(output.Contains(CommandProcessor.scanSucceedMessage));
       }
 
       [TestMethod]
-      public void LexGoodHelloWorld()
+      [DataRow(true)]
+      [DataRow(false)]
+      public void LexGoodHelloWorld(bool doAnsi)
       {
-         string source = 
+         string sourceCode = 
 @"Program Hello:
 Begin
    WriteLn('Hello, World!');
    ReadLn;
 End.";
-         string path = Path.GetTempFileName();
-         File.WriteAllText(path, source);
          string output;
-         using (MemoryStream ms = new MemoryStream())
-         using (TextWriter tw = new StreamWriter(ms))
+         using (DisposableFile df = new DisposableFile())
          {
-            CommandProcessor.Process(new string[] { "-no-ansi", "-l", path }, tw);
-            tw.Flush();
-            output = Encoding.UTF8.GetString(ms.ToArray());
+            File.WriteAllText(df.FilePath, sourceCode);
+            using (MemoryStream ms = new MemoryStream())
+            using (TextWriter tw = new StreamWriter(ms))
+            {
+               string[] args;
+               if (doAnsi)
+                  args = new string[] { "-l", df.FilePath };
+               else
+                  args = new string[] { "-no-ansi", "-l", df.FilePath };
+               CommandProcessor.Process(args, tw);
+               tw.Flush();
+               output = Encoding.UTF8.GetString(ms.ToArray());
+            }
          }
          Assert.IsTrue(output.Contains(CommandProcessor.lexSucceedMessage));
       }
 
       [TestMethod]
-      public void LexBadHelloWorld()
+      [DataRow(true)]
+      [DataRow(false)]
+      public void LexBadHelloWorld(bool doAnsi)
       {
-         string source =
+         string sourceCode =
 @"Program Hello:
 Begin
    WriteLn('Hello, World!');
    ReadLn; _______________________
 End.";
-         string path = Path.GetTempFileName();
-         File.WriteAllText(path, source);
          string output;
-         using (MemoryStream ms = new MemoryStream())
-         using (TextWriter tw = new StreamWriter(ms))
+         using (DisposableFile df = new DisposableFile())
          {
-            CommandProcessor.Process(new string[] { "-no-ansi", "-l", path }, tw);
-            tw.Flush();
-            output = Encoding.UTF8.GetString(ms.ToArray());
+            File.WriteAllText(df.FilePath, sourceCode);
+            using (MemoryStream ms = new MemoryStream())
+            using (TextWriter tw = new StreamWriter(ms))
+            {
+               string[] args;
+               if (doAnsi)
+                  args = new string[] { "-l", df.FilePath };
+               else
+                  args = new string[] { "-no-ansi", "-l", df.FilePath };
+               CommandProcessor.Process(args, tw);
+               tw.Flush();
+               output = Encoding.UTF8.GetString(ms.ToArray());
+            }
+         }
+         Assert.IsTrue(output.Contains(CommandProcessor.lexFailMessage));
+      }
+
+      [TestMethod]
+      [DataRow(true)]
+      [DataRow(false)]
+      public void LexBadMultilineCommentHelloWorld(bool doAnsi)
+      {
+         string sourceCode =
+@"Program Hello:
+Begin
+   WriteLn('Hello, World!');
+   ReadLn; (*
+this
+comment
+goes
+across
+many
+lines
+*) _______________________
+End.";
+         string output;
+         using (DisposableFile df = new DisposableFile())
+         {
+            File.WriteAllText(df.FilePath, sourceCode);
+            using (MemoryStream ms = new MemoryStream())
+            using (TextWriter tw = new StreamWriter(ms))
+            {
+               string[] args;
+               if (doAnsi)
+                  args = new string[] { "-l", df.FilePath };
+               else
+                  args = new string[] { "-no-ansi", "-l", df.FilePath };
+               CommandProcessor.Process(args, tw);
+               tw.Flush();
+               output = Encoding.UTF8.GetString(ms.ToArray());
+            }
+         }
+         Assert.IsTrue(output.Contains(CommandProcessor.lexFailMessage));
+      }
+
+      [TestMethod]
+      [DataRow(true)]
+      [DataRow(false)]
+      public void LexBadMultilineCommentFactorial(bool doAnsi)
+      {
+         string sourceCode =
+@"program Factorial;
+var
+    num, fact, i: integer; {declare vars}
+begin
+    writeln('Enter a number: '); {get input}
+    readln(num);
+    fact := 1;
+    for i := 1 to num do
+        fact := fact * i; (*factorialize
+        yes yes*) __
+    writeln('Factorial of ', num, ' is: ', fact);
+end.
+";
+         string output;
+         using (DisposableFile df = new DisposableFile())
+         {
+            File.WriteAllText(df.FilePath, sourceCode);
+            using (MemoryStream ms = new MemoryStream())
+            using (TextWriter tw = new StreamWriter(ms))
+            {
+               string[] args;
+               if (doAnsi)
+                  args = new string[] { "-l", df.FilePath };
+               else
+                  args = new string[] { "-no-ansi", "-l", df.FilePath };
+               CommandProcessor.Process(args, tw);
+               tw.Flush();
+               output = Encoding.UTF8.GetString(ms.ToArray());
+            }
          }
          Assert.IsTrue(output.Contains(CommandProcessor.lexFailMessage));
       }
