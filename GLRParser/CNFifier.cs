@@ -430,6 +430,74 @@ namespace GLRParser
          CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
          List<Production> ord = OrdGrammarRepresentation(parsedGrammar); //needs testing
 
+         //Idea:
+         //Since the original grammar is the "useful form" of the grammar, and the grammar that the CNF-ifier generates
+         //is less useful for the programmer since it's in an arbitrary form, here's my idea to convert between the two.
+
+         //Say a parse tree is generated via the CNF-ified form of the grammar, and we want to re-arrange/manipulate this
+         //tree to be in terms of the "original nodes".
+
+         /*
+          * Say capital letters represent the original nonterminals, and lowercase letters represent the nonterminals
+          * introduced by the CNF-ifier, and things in 'quotes' are terminals.
+          * 
+          * from:
+          * A -> '=' 'zaza' '()' ':D'
+          * 
+          * to (CNF-ified):
+          * A -> b c
+          * b -> d e
+          * c -> f g
+          * d -> '='
+          * e -> 'zaza'
+          * f -> '()'
+          * g -> ':D'
+          * 
+          * we simply take the CNF-ified form and inline the new terminals at their call site recursively
+          * 
+          * first:
+          * A -> b c
+          * b -> '=' 'zaza'
+          * c -> '()' ':D'
+          * 
+          * then:
+          * A -> '=' 'zaza' '()' ':D'
+          * 
+          * If there are multiple capital-letter-nonterminals, we only inline up to the nearest capital-letter-nonterminal.
+          * (i.e., don't inline the capital-letter-nonterminals).
+          * 
+          * Before trying this on a parse tree, first I would like to try it on the CNF grammar structure to produce an equivalent grammar
+          * (it won't be CNF), where all recipies comprise an O.G. nonterminal. This way, hopefully the contents of a parse tree can be
+          * "flatly applied" to this form of the grammar, which should be compatible with the original nonterminal recipies.
+          * 
+          * foreach recipie:
+          *    foreach nonterminal in RHS
+          *       if aforementioned nonterminal is OG, then inline its nonterminal ingredients here
+          *       //(if there are multiple recipies for a non-OG nonterminal, then do so via an "or list" i.e. a | b | c | d)
+          *       //e.g., given the recipie
+          *       //A -> b c
+          *       //b -> w x
+          *       //b -> y z
+          *       //c -> 'jo mama'
+          *       
+          *       //the OG "A" would turn into
+          *       //A -> ((w x) | (y z)) 'jo mama'
+          *       //hopefully this "A" can be flatly applied to the OG nonterminal "A" (pre-CNF-ified).
+          */
+
+
+
+
+
+
+
+
+
+
+
+
+
+
          /*
           * For this CNFifier to be actually useful in making a *parser*, and not just a recognizer,
           * the parser tree would be best to be constructed of the form akin to the *original grammar*,
