@@ -49,6 +49,16 @@ namespace GLRParser
       public GLRParser(string[] grammar, string startingNonterminal) 
       {
          CNFGrammar = new CNFifier(grammar, startingNonterminal);
+
+         //general algorithm:
+         //while (true)
+         /*
+          * nondeterministically choose either
+          * 1. pop a symbol out of the inputStream and put it into the parseStack
+          * 2. nondeterministically reduce the parseStack according to any valid parse rule
+          */
+         //after explicitizing this, I realize how with any non-trivially sized file, this algorithm
+         //is definitely O(c^n) :(. Not feasable.
       }
 
       public List<ASTNode> Parse(List<ASTNode> input)
