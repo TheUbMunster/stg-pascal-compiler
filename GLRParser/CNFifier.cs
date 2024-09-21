@@ -485,8 +485,40 @@ namespace GLRParser
           *       //hopefully this "A" can be flatly applied to the OG nonterminal "A" (pre-CNF-ified).
           */
 
+         //https://en.wikipedia.org/wiki/CYK_algorithm
+         //https://www.geeksforgeeks.org/cyk-algorithm-for-context-free-grammar/
 
+         //CYK as I understand it:
 
+         //"n" denotes the length of the input token stream
+         //"G" denotes the ruleset (list of recipies)
+
+         //1. if the input is the empty string, and the empty string trivially satisfies the grammar, accept, otherwise reject.
+
+         //2. (for terminal productions in the CNF-ified grammar G)
+         //table[n, n]
+         //for i = 1 to n:
+         //  foreach var A in G:
+         //    if (A -> b is a rule that exists in G where "b" = w_i for some i) //what does this last part mean? not sure
+         //      table[i, i] = A
+
+         //3. (for nonterminal productions in the CNF-ified grammar G)
+         //for l = 2 to n:
+         //  for i = 1 to n-l+1:
+         //    j=i+l-1
+         //    for k = i to j-1:
+         //      foreach var A -> BC in G:
+         //        if table[i, k] contains B and table[k + 1, j] contains C
+         //          table[i, j] = A
+
+         //4.
+         //if S is in table[1, n] //S is the start state nonterminal
+         //  accept the input
+         //else
+         //  reject the input
+
+         //to get the parse tree, you need to backtrack???
+         //the wikipedia page contains this info
 
 
 
