@@ -8,5 +8,5 @@ begin
     for i := 1 to num do
         fact := fact * i; (*factorialize
         yes yes*)
-    writeln('Factorial of ', num, ' is: ', fact); __
+    writeln('Factorial of ', num, ' is: ', fact); (*__*)
 end.

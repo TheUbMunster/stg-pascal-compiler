@@ -132,7 +132,7 @@ namespace PascalCompiler.Lexer
       /// Semantically irrelevant tokens that got absorbed into this token. These tokens are in-order as they appear in
       /// the source, and all belonged *before* this token in occurance.
       /// </summary>
-      public IReadOnlyList<Token> AbsorbedTokens { get; set; }
+      public IReadOnlyList<Token> AbsorbedTokens { get; set; } = null!;
       public TokenType Type { get; private init; }
       public Regex Reg { get; private init; } = null!;
       //These three are assigned by the lexer.

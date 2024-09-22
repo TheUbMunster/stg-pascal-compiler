@@ -12,6 +12,55 @@ namespace PascalCompiler.NewParser
    public class CNFifier
    {
       #region Typedefs
+      #region Grammar Parser
+      internal enum TokenType
+      {
+         /* Grammar Grammar:
+          * 
+          * terminal = '\'.+\'' . //assert that the final ' is not preceeded by a backslash (escaped quote)
+          * nonterminal = [A-Za-z-_]+ .
+          * ingredients = '(' ingredients ')' .
+          * ingredients = '[' ingredients ']' .
+          * ingredients = '{' ingredients '}' .
+          * ingredients = ingredients '|' ingredients .
+          * ingredients = ingredients ingredients .
+          * production = nonterminal '=' ingredients '.' .
+          */
+         Terminal = 0,
+         Nonterminal,
+         LParen, RParen,
+         LSquare, RSquare,
+         LCurly, RCurly,
+         Pipe,
+         Equals,
+         Period,
+         WHITESPACE //most important
+      }
+      internal class Token
+      {
+         public TokenType Type { get; init; }
+         public int FileLocation { get; init; }
+         public int TokenLength { get; init; }
+         public string Source { get; init; } = null!;
+         public string Content { get => Source.Substring(FileLocation, TokenLength); }
+         public Token() { }
+         public string CleanedContent 
+         {
+            get
+            {
+               if (Type == TokenType.Terminal)
+               {
+                  string c = Content;
+                  if (c[0] == '\'' && c[^1] == '\'')
+                     return c.Substring(1, c.Length - 2);
+                  else throw new Exception(); // wasn't encapsulated by '' like it was supposed to be.
+               }
+               else return Content;
+            } 
+         }
+         public override string ToString() => Content;
+      }
+      #endregion
       //refine this concept?
       //private enum GrammarGuarantees
       //{
@@ -38,13 +87,43 @@ namespace PascalCompiler.NewParser
             Production res = new(lhs.Copy(), (GroupIngredient)rhs.Copy()); //type system makes me sad sometimes
             return res;
          }
-         //this is heavy but probably not used for non-debug purposes.
-         //TODO: this is bad if any duplicated spaces were intentional (e.g., in a terminal)
-         public override string ToString() => Regex.Replace($"{lhs} = {rhs?.ToString() ?? ""} .", " +", " ").Trim();
+         public override string ToString() => $"{lhs} = {rhs?.ToString().Trim() ?? ""} .".Trim();
+         internal static Production? Parse(IReadOnlyList<Token> source, ref int index)
+         {
+            //prologue
+            int tind = index;
+            Production? node = null;
+
+            //body
+            Token nontermTok = source[tind++];
+            Token equalsTok = source[tind++];
+            if (nontermTok.Type == TokenType.Nonterminal &&
+                equalsTok.Type == TokenType.Equals)
+            {
+               GroupIngredient? recipie = GroupIngredient.Parse(source, ref tind);
+               if (recipie != null)
+               {
+                  node = new Production(new Nonterminal(nontermTok.Content), recipie);
+               }
+            }
+
+            //epilogue
+            index = node == null ? index : tind;
+            return node;
+         }
       }
       public abstract record class Ingredient() //conceptually similar to a mathematical "term"
       {
          public abstract Ingredient Copy();
+         internal static Ingredient? Parse(IReadOnlyList<Token> source, ref int index)
+         {
+            Ingredient? node = null;
+            node ??= GroupIngredient.Parse(source, ref index);
+            node ??= VariableIngredient.Parse(source, ref index);
+            node ??= OrIngredient.Parse(source, ref index);
+            node ??= ItemIngredient.Parse(source, ref index);
+            return node;
+         }
       }
       public record class ItemIngredient(Nonterminal? nt, Terminal? t) : Ingredient
       { //value equality should be sufficient.
@@ -53,7 +132,7 @@ namespace PascalCompiler.NewParser
             ItemIngredient ii = new(nt?.Copy(), t?.Copy());
             return ii;
          }
-         public override string ToString() => (nt?.ToString() ?? t?.ToString())!;
+         public override string ToString() => (nt?.ToString() ?? t?.ToString())!.Trim();
       }
       public enum VariableIngredientType
       {
@@ -76,9 +155,9 @@ namespace PascalCompiler.NewParser
                case VariableIngredientType.UNDEFINED:
                   throw new Exception();
                case VariableIngredientType.ZeroOrOne:
-                  return $" [ {item} ] ";
+                  return $" [ {item.ToString().Trim()} ] ";
                case VariableIngredientType.ZeroOrMore:
-                  return $" {{ {item} }} ";
+                  return $" {{ {item.ToString().Trim()} }} ";
                default:
                   throw new Exception();
             }
@@ -95,7 +174,7 @@ namespace PascalCompiler.NewParser
          /// Should only be read when otherwise sure that this group is *items only*.
          /// </summary>
          public IEnumerable<ItemIngredient> ingredientsAsItems { get => ingredients.Select(x => (x as ItemIngredient)!); }
-         public override string ToString() => " ( " + string.Join(' ', ingredients) + " ) ";
+         public override string ToString() => " ( " + string.Join(' ', ingredients.Select(x => x.ToString().Trim())) + " ) ";
          public virtual bool Equals(GroupIngredient? other)
          {
             if (other is not null)
@@ -103,6 +182,47 @@ namespace PascalCompiler.NewParser
             else return false;
          }
          public override int GetHashCode() => base.GetHashCode();
+         internal new static GroupIngredient? Parse(IReadOnlyList<Token> source, ref int index)
+         {
+            //prologue
+            int tind = index;
+            GroupIngredient? node = null;
+
+            //body
+            //optionally encapsulated in '(' ')'
+            //if so, consume the open paren, recursively call GroupIngredient.Parse, then consume close paren
+            {
+               int ttind = tind;
+               Token openParenToken = source[ttind++];
+               if (openParenToken.Type == TokenType.LParen)
+               {
+                  tind = ttind;
+                  GroupIngredient? gi = GroupIngredient.Parse(source, ref tind);
+                  Token closeParenToken = source[tind++];
+                  if (closeParenToken.Type == TokenType.RParen)
+                  {
+                     node = gi;
+                  }
+               }
+               else
+               {
+                  List<Ingredient> groupIngredients = new List<Ingredient>();
+                  while (true)
+                  {
+                     Ingredient? ii = Ingredient.Parse(source, ref tind);
+                     if (ii != null)
+                        groupIngredients.Add(ii);
+                     else
+                        break;
+                  }
+                  node = new GroupIngredient(groupIngredients);
+               }
+            }
+
+            //epilogue
+            index = node == null ? index : tind;
+            return node;
+         }
       }
       public record class OrIngredient(Ingredient lhs, Ingredient rhs) : Ingredient
       { //value equality should be sufficient.
@@ -111,7 +231,7 @@ namespace PascalCompiler.NewParser
             OrIngredient oi = new(lhs.Copy(), rhs.Copy());
             return oi;
          }
-         public override string ToString() => $"( {lhs} | {rhs} )";
+         public override string ToString() => $"( {lhs.ToString().Trim()} | {rhs.ToString().Trim()} )";
       }
       public record class Nonterminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
       { //value equality should be sufficient.
@@ -123,6 +243,25 @@ namespace PascalCompiler.NewParser
          public Terminal Copy() => new(Name);
          public override string ToString() => $" '{Name}' ";
       }
+      #endregion
+
+      #region Consts
+      private static readonly IReadOnlyDictionary<TokenType, Regex> regexes = new Dictionary<TokenType, Regex>()
+      {
+         //https://learn.microsoft.com/en-us/answers/questions/1661001/c-regex-pattern-double-quotes-problem
+         { TokenType.Terminal,        new Regex(@"'((?:[^'\\]|\\.)*)'", RegexOptions.Compiled) },
+         { TokenType.Nonterminal,     new Regex("\\G[A-Za-z-]+", RegexOptions.Compiled) },
+         { TokenType.LParen,          new Regex($"\\G{Regex.Escape("(")}", RegexOptions.Compiled) },
+         { TokenType.RParen,          new Regex($"\\G{Regex.Escape(")")}", RegexOptions.Compiled) },
+         { TokenType.LSquare,         new Regex($"\\G{Regex.Escape("[")}", RegexOptions.Compiled) },
+         { TokenType.RSquare,         new Regex($"\\G{Regex.Escape("]")}", RegexOptions.Compiled) },
+         { TokenType.LCurly,          new Regex($"\\G{Regex.Escape("{")}", RegexOptions.Compiled) },
+         { TokenType.RCurly,          new Regex($"\\G{Regex.Escape("}")}", RegexOptions.Compiled) },
+         { TokenType.Pipe,            new Regex($"\\G{Regex.Escape("|")}", RegexOptions.Compiled) },
+         { TokenType.Equals,          new Regex($"\\G{Regex.Escape("=")}", RegexOptions.Compiled) },
+         { TokenType.Period,          new Regex($"\\G{Regex.Escape(".")}", RegexOptions.Compiled) },
+         { TokenType.WHITESPACE,      new Regex("\\G[ \\t]+", RegexOptions.Compiled) }
+      };
       #endregion
 
       //original source
@@ -164,6 +303,7 @@ namespace PascalCompiler.NewParser
       {
          GrammarSource = grammarSource;
          StartingNonterminal = startingNonterminal;
+         //List<(string src, IReadOnlyList<Token> toks)> asdf = grammarSource.Select(x => (x, Lexer.Lex(x))).ToList();
          //things of relevance:
          //https://en.wikipedia.org/wiki/Chomsky_normal_form
          //https://cs.stackexchange.com/questions/18052/rules-regarding-chomsky-normal-form-cnf-grammars
@@ -372,14 +512,16 @@ namespace PascalCompiler.NewParser
          //bool eq = ((Ingredient)new GroupIngredient(new List<Ingredient>() { new ItemIngredient(null, null) })).Equals(((Ingredient)new GroupIngredient(new List<Ingredient>() { new ItemIngredient(null, null) }))); //true
 
          //temp:
-         parsedGrammar = testGrammar;
-         startingNonterminal = "Expr";
+         //parsedGrammar = testGrammar;
+         //startingNonterminal = "Expr";
+
+         parsedGrammar = grammarSource.Select(Lex).Select(Parse).ToList();
 
          //TODO: convert grammar source into list of productions.
 
          /* Grammar Grammar:
           * 
-          * terminal = '\'.+\'' .
+          * terminal = '\'.+\'' . //assert that the final ' is not preceeded by a backslash (escaped quote)
           * nonterminal = [A-Za-z-_]+ .
           * ingredients = '(' ingredients ')' .
           * ingredients = '[' ingredients ']' .
@@ -1464,6 +1606,7 @@ namespace PascalCompiler.NewParser
       }
       #endregion
 
+      #region QOL
       private List<Production> OrdGrammarRepresentation(List<Production> intermediateGrammar)
       {
          //todo: see if there's a clean way to prevent right paren groupings
@@ -1492,5 +1635,68 @@ namespace PascalCompiler.NewParser
          }
          return result;
       }
+      #endregion
+
+      #region GrammarLexer
+      private static IReadOnlyList<Token> Lex(string source)
+      {
+         List<Token> result = new List<Token>();
+         int[] ttVals = Enum.GetValues<TokenType>().Select(x => (int)x).OrderBy(x => x).ToArray();
+         TokenType max = (TokenType)ttVals[^1]; //this only works if enum vals are contig
+         int index = 0;
+         TokenType attempt = max;
+         while (index < source.Length)
+         {
+            Regex reg = regexes[attempt];
+            Match m = reg.Match(source, index);
+            if (m.Success)
+            {
+               Token t = new Token()
+               {
+                  TokenLength = m.Length,
+                  FileLocation = index,
+                  Type = attempt,
+                  Source = source,
+               };
+               if (t.Type != TokenType.WHITESPACE)
+                  result.Add(t);
+               //at the very end.
+               attempt = max;
+               index += m.Length;
+            }
+            else
+            {
+               attempt = (TokenType)(((int)attempt) - 1);
+               if (attempt < 0)
+                  throw new Exception(); //could not lex
+            }
+         }
+         return result;
+      }
+      #endregion
+
+      #region GrammarParser
+      private static Production Parse(IReadOnlyList<Token> source)
+      {
+         Production? p = null;
+         int ind = 0;
+         while (ind < source.Count)
+         {
+            int indBefore = ind;
+            //node? node = ParseTopLevel()
+            p = Production.Parse(source, ref ind);
+            //if node == null throw exception
+            if (p == null)
+               throw new Exception();
+            //else if indBefore == ind throw exception (index wasn't advanced!)
+            else if (indBefore == ind)
+               throw new Exception();
+            //else 
+            else if (ind < source.Count)
+               throw new Exception(); //it was a successfull parse, but somehow there's more tokens in the tokenstream.
+         }
+         return p!;
+      }
+      #endregion
    }
 }
