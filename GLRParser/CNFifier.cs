@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace GLRParser
 {
-   internal class CNFifier
+   public class CNFifier
    {
       #region Typedefs
       //refine this concept?
@@ -31,7 +31,7 @@ namespace GLRParser
        * GroupIngredient: an ingredient made of other ingredients
        * ...
        */
-      private record class Production(Nonterminal lhs, GroupIngredient rhs) // if rhs.ingredients.Coutn == 0, then it's an A -> epsilon (empty) recipie.
+      public record class Production(Nonterminal lhs, GroupIngredient rhs) // if rhs.ingredients.Coutn == 0, then it's an A -> epsilon (empty) recipie.
       { //value equality should be sufficient.
          public Production Copy()
          {
@@ -39,13 +39,14 @@ namespace GLRParser
             return res;
          }
          //this is heavy but probably not used for non-debug purposes.
+         //TODO: this is bad if any duplicated spaces were intentional (e.g., in a terminal)
          public override string ToString() => Regex.Replace($"{lhs} = {rhs?.ToString() ?? ""} .", " +", " ").Trim();
       }
-      private abstract record class Ingredient() //conceptually similar to a mathematical "term"
+      public abstract record class Ingredient() //conceptually similar to a mathematical "term"
       {
          public abstract Ingredient Copy();
       }
-      private record class ItemIngredient(Nonterminal? nt, Terminal? t) : Ingredient
+      public record class ItemIngredient(Nonterminal? nt, Terminal? t) : Ingredient
       { //value equality should be sufficient.
          public override Ingredient Copy()
          {
@@ -54,14 +55,14 @@ namespace GLRParser
          }
          public override string ToString() => (nt?.ToString() ?? t?.ToString())!;
       }
-      private enum VariableIngredientType
+      public enum VariableIngredientType
       {
          UNDEFINED,
          Optional = 1,
          ZeroOrOne = 1,
          ZeroOrMore
       }
-      private record class VariableIngredient(Ingredient item, VariableIngredientType groupType) : Ingredient
+      public record class VariableIngredient(Ingredient item, VariableIngredientType groupType) : Ingredient
       { //value equality should be sufficient.
          public override Ingredient Copy()
          {
@@ -83,7 +84,7 @@ namespace GLRParser
             }
          }
       }
-      private record class GroupIngredient(List<Ingredient> ingredients) : Ingredient
+      public record class GroupIngredient(List<Ingredient> ingredients) : Ingredient
       {
          public override Ingredient Copy()
          {
@@ -103,7 +104,7 @@ namespace GLRParser
          }
          public override int GetHashCode() => base.GetHashCode();
       }
-      private record class OrIngredient(Ingredient lhs, Ingredient rhs) : Ingredient
+      public record class OrIngredient(Ingredient lhs, Ingredient rhs) : Ingredient
       { //value equality should be sufficient.
          public override Ingredient Copy()
          {
@@ -112,22 +113,31 @@ namespace GLRParser
          }
          public override string ToString() => $"( {lhs} | {rhs} )";
       }
-      private record class Nonterminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
+      public record class Nonterminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
       { //value equality should be sufficient.
          public Nonterminal Copy() => new(Name);
          public override string ToString() => $" {Name} ";
       }
-      private record class Terminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
+      public record class Terminal(string Name) //maybe this should derive from ingredient and ItemIngredient be deleted.
       { //value equality should be sufficient.
          public Terminal Copy() => new(Name);
          public override string ToString() => $" '{Name}' ";
       }
       #endregion
 
+      //original source
       public string[] GrammarSource { get; }
       public string StartingNonterminal { get; }
-      public string[] CNFGrammarSource { get; }
-      public string CNFStartingNonterminal { get; }
+      //cnf-ified source
+      //public string[] CNFGrammarSource { get; }
+      //public string CNFStartingNonterminal { get; }
+      //public string[] CNFUniqueNonterminals { get; }
+      //public IReadOnlyDictionary<string, IReadOnlyList<string>> CNFGrammarSourceAsLookup { get; }
+      public IReadOnlyList<Production> CNFGrammar { get; }
+      public IEnumerable<string> CNFGrammarSource { get => CNFGrammar.Select(x => x.ToString()); }
+      public IEnumerable<Nonterminal> CNFUniqueNonterminals { get => CNFGrammar.Select(x => x.lhs).Distinct(); }
+      //public IReadOnlyDictionary<string, IReadOnlyList<string>> CNFGrammarSourceAsLookup { get; }
+      public Nonterminal CNFStartingNonterminal { get; }
       /// <summary>
       /// Takes an input grammar adhering to the following rules: <br/><br/>
       /// 
@@ -416,7 +426,7 @@ namespace GLRParser
          //at this point there should be no { }, [ ], or |
          //probably need to flatten nested groups into a single top level group.
          SimplifySinglyGroups(parsedGrammar);
-         CNFStartingNonterminal = startingNonterminal = TransformGrammarSTART(parsedGrammar, startingNonterminal);
+         CNFStartingNonterminal = new Nonterminal(startingNonterminal = TransformGrammarSTART(parsedGrammar, startingNonterminal));
          TransformGrammarTERM(parsedGrammar);
          TransformGrammarBIN(parsedGrammar);
          TransformGrammarDEL(parsedGrammar);
@@ -427,7 +437,8 @@ namespace GLRParser
          bool success = CheckAdheresToCNF(parsedGrammar);
          if (!success)
             throw new Exception("Applied all CNFifier transformations, and yet output grammar was not CNF");
-         CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
+         //CNFGrammarSource = parsedGrammar.Select(x => x.ToString()).ToArray();
+         CNFGrammar = parsedGrammar;
          List<Production> ord = OrdGrammarRepresentation(parsedGrammar); //needs testing
 
          //Idea:
