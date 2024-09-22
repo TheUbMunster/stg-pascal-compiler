@@ -161,8 +161,8 @@ namespace PascalCompiler.NewParser
                {
                   //this should be a "nonterminal -> terminal" type recipie
                   CNFifier.Terminal term = ((CNFifier.ItemIngredient)prod.rhs.ingredients[0]).t!;
-                  //if typeof(term) == typeof(a_s)
-                     //P[0, s, v] = true;
+                  if (PascalGrammar.grammarTokenTypeMapping[a_s] == term.Name) //if typeof(term) == typeof(a_s)
+                     P[0, s, v] = true;
                }
             }
          }

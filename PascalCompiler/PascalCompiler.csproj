@@ -14,8 +14,4 @@
 	</None>
   </ItemGroup>
 
-  <ItemGroup>
-    <ProjectReference Include="..\GLRParser\GLRParser.csproj" />
-  </ItemGroup>
-
 </Project>

@@ -7,7 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
-namespace GLRParser
+namespace PascalCompiler.NewParser
 {
    public class CNFifier
    {
