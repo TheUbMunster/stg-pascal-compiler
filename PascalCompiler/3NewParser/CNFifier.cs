@@ -815,19 +815,19 @@ namespace PascalCompiler.NewParser
           * ingredients = ingredients ingredients .
           * production = nonterminal '=' ingredients '.' .
           */
-         Regex whitespace = new Regex("\\s+");
+         //Regex whitespace = new Regex("\\s+");
          //todo match to nearest closing ', but match as few as possible, unless the matched ' is escaped (i.e., \') to prevent situations like '(' ')' being a single terminal containing "(' ')".
-         Regex terminal = new Regex("'.+'");
-         Regex nonterminal = new Regex("[A-Za-z-_]+");
-         Regex l_paren = new Regex("\\(");
-         Regex r_paren = new Regex("\\)");
-         Regex l_square = new Regex("\\[");
-         Regex r_square = new Regex("\\]");
-         Regex l_curly = new Regex("\\{");
-         Regex r_curly = new Regex("\\}");
-         Regex period = new Regex("\\.");
-         Regex equals = new Regex("\\=");
-         Regex pipe = new Regex("\\|");
+         //Regex terminal = new Regex("'.+'");
+         //Regex nonterminal = new Regex("[A-Za-z-_]+");
+         //Regex l_paren = new Regex("\\(");
+         //Regex r_paren = new Regex("\\)");
+         //Regex l_square = new Regex("\\[");
+         //Regex r_square = new Regex("\\]");
+         //Regex l_curly = new Regex("\\{");
+         //Regex r_curly = new Regex("\\}");
+         //Regex period = new Regex("\\.");
+         //Regex equals = new Regex("\\=");
+         //Regex pipe = new Regex("\\|");
 
          //TODO: after each transformation step(s), ensure the desired property was achieved (so that subsequent transformation methods don't need to check).
 
@@ -1967,16 +1967,7 @@ namespace PascalCompiler.NewParser
          //"constant = [ sign ] ( unsigned-number | constant-identifier ) | character-string ."
          //the above def(s) might be too ambiguous to parse/are known to be "tricky" defs.
 
-         /*
-          field-list = 
-             [
-                 fixed-part 
-                 ( 
-                    [ ( ';' variant-part ) ] | variant-part
-                 )
-                 [ ';' ]
-             ] .
-          */
+         //TODO: field-list is still wrong
 
          Production? p = null;
          int ind = 0;
