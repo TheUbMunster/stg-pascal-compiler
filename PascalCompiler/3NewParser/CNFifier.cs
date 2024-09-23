@@ -87,7 +87,10 @@ namespace PascalCompiler.NewParser
             Production res = new(lhs.Copy(), (GroupIngredient)rhs.Copy()); //type system makes me sad sometimes
             return res;
          }
-         public override string ToString() => $"{lhs} = {rhs?.ToString().Trim() ?? ""} .".Trim();
+         //was originally:
+         //public override string ToString() => $"{lhs.ToString().Trim()} = {rhs?.ToString().Trim() ?? ""} .".Trim();
+         //remove () from parentmost GroupIngredient belonging to this production
+         public override string ToString() => $"{lhs.ToString().Trim()} = {rhs?.ToString().Trim(' ').Trim('(', ')').Trim(' ') ?? ""} .".Trim();
          internal static Production? Parse(IReadOnlyList<Token> source, ref int index)
          {
             //prologue
@@ -100,7 +103,7 @@ namespace PascalCompiler.NewParser
             if (nontermTok.Type == TokenType.Nonterminal &&
                 equalsTok.Type == TokenType.Equals)
             {
-               HashSet<Type> forbiddenParses = new HashSet<Type>(); //none forbidden at first
+               Stack<(Type t, int ind)> forbiddenParses = new Stack<(Type t, int ind)>(); //none forbidden at first
                Ingredient? recipie = GroupIngredient.Parse(source, ref tind, ref forbiddenParses);
                if (recipie != null)
                {
@@ -108,10 +111,14 @@ namespace PascalCompiler.NewParser
                      node = new Production(new Nonterminal(nontermTok.Content), new GroupIngredient(new() { recipie }));
                   else
                      node = new Production(new Nonterminal(nontermTok.Content), (GroupIngredient)recipie);
-                  Token periodTok = source[tind++];
-                  if (periodTok.Type != TokenType.Period) //def didn't end in '.'!
-                     node = null;
                }
+               else
+               {
+                  node = new Production(new Nonterminal(nontermTok.Content), new GroupIngredient(new List<Ingredient>())); //empty production.
+               }
+               Token periodTok = source[tind++];
+               if (periodTok.Type != TokenType.Period) //def didn't end in '.'!
+                  node = null;
             }
 
             //epilogue
@@ -122,34 +129,83 @@ namespace PascalCompiler.NewParser
       public abstract record class Ingredient() //conceptually similar to a mathematical "term"
       {
          public abstract Ingredient Copy();
-         internal static Ingredient? Parse(IReadOnlyList<Token> source, ref int index, ref HashSet<Type> forbiddenParses)
+         internal static Ingredient? Parse(IReadOnlyList<Token> source, ref int index, ref Stack<(Type t, int ind)> forbiddenParses)
          {
-            //precedence idea: if this call to Ingredient.Parse was called previously by (e.g., GroupIngredient)
-            //then forbid calls to GroupIngredient.Parse for this particulat call to parse.
+            #region old
+            ////precedence idea: if this call to Ingredient.Parse was called previously by (e.g., GroupIngredient)
+            ////then forbid calls to GroupIngredient.Parse for this particulat call to parse.
+            //Ingredient? node = null;
+            //int tind = index; //this variable is only used bc ref vars can't be in closure
+
+            ////these ifs enforce that the index advance in certain circumstances, rather than recursively not advance in non-consumers.
+
+            ////"if there's a call further up the call stack enforcing that the tokenstream be more advanced before parsing node of type T"
+            ////then you only may parse node of type T if the token stream is further ahead than the parent call.
+
+            ////if (!forbiddenParses.Contains(typeof(OrIngredient)))
+            //if (!forbiddenParses.Any(x => x.t == typeof(OrIngredient) && x.ind >= tind))
+            //{
+            //   //forbiddenParses.Add(typeof(OrIngredient));
+            //   node ??= OrIngredient.Parse(source, ref index, ref forbiddenParses);
+            //   //forbiddenParses.Remove(typeof(OrIngredient));
+            //}
+            //tind = index;
+            ////if (!forbiddenParses.Contains(typeof(VariableIngredient)))
+            //if (!forbiddenParses.Any(x => x.t == typeof(VariableIngredient) && x.ind >= tind))
+            //{
+            //   //forbiddenParses.Add(typeof(VariableIngredient)); //remove from collection if parse fails
+            //   node ??= VariableIngredient.Parse(source, ref index, ref forbiddenParses);
+            //   //forbiddenParses.Remove(typeof(VariableIngredient));
+            //}
+            //tind = index;
+            ////if (!forbiddenParses.Contains(typeof(GroupIngredient)))
+            //if (!forbiddenParses.Any(x => x.t == typeof(GroupIngredient) && x.ind >= tind))
+            //{
+            //   //forbiddenParses.Add(typeof(GroupIngredient));
+            //   node ??= GroupIngredient.Parse(source, ref index, ref forbiddenParses);
+            //   //forbiddenParses.Remove(typeof(GroupIngredient));
+            //}
+            //tind = index;
+            ////if (!forbiddenParses.Contains(typeof(ItemIngredient)))
+            //if (!forbiddenParses.Any(x => x.t == typeof(ItemIngredient) && x.ind >= tind))
+            //{
+            //   //forbiddenParses.Add(typeof(ItemIngredient)); //"" ""
+            //   node ??= ItemIngredient.Parse(source, ref index, ref forbiddenParses);
+            //   //forbiddenParses.Remove(typeof(ItemIngredient));
+            //}
+            //tind = index;
+            //return node;
+            #endregion
             Ingredient? node = null;
-            if (!forbiddenParses.Contains(typeof(OrIngredient)))
+            int tind = index; //this variable is only used bc ref vars can't be in closure
+            if (node == null && !forbiddenParses.Any(x => x.t == typeof(OrIngredient) && x.ind >= tind)) // && !(forbiddenParses.Any() && forbiddenParses.Peek().t == typeof(GroupIngredient))
+               node = OrIngredient.Parse(source, ref index, ref forbiddenParses);
+            tind = index; //even if an above ??= succeeds, we need to ensure that subsequent  x.ind >= tind is accurate (just in case we add any additiona logic to the body of the if)
+            if (node == null && !forbiddenParses.Any(x => x.t == typeof(VariableIngredient) && x.ind >= tind))
+               node = VariableIngredient.Parse(source, ref index, ref forbiddenParses);
+            tind = index;
+            if (node == null && !forbiddenParses.Any(x => x.t == typeof(GroupIngredient) && x.ind >= tind))
+               node = GroupIngredient.Parse(source, ref index, ref forbiddenParses);
+            tind = index;
+            if (node == null && !forbiddenParses.Any(x => x.t == typeof(ItemIngredient) && x.ind >= tind))
+               node = ItemIngredient.Parse(source, ref index, ref forbiddenParses);
+            tind = index;
+            if (node == null/* && !forbiddenParses.Any(x => x.t == typeof(GroupIngredient) && x.ind >= tind)*/) //try GroupIngredient again, but strip parens.
             {
-               forbiddenParses.Add(typeof(OrIngredient));
-               node ??= OrIngredient.Parse(source, ref index, ref forbiddenParses);
-               forbiddenParses.Remove(typeof(OrIngredient));
-            }
-            if (!forbiddenParses.Contains(typeof(VariableIngredient)))
-            {
-               forbiddenParses.Add(typeof(VariableIngredient)); //remove from collection if parse fails
-               node ??= VariableIngredient.Parse(source, ref index, ref forbiddenParses);
-               forbiddenParses.Remove(typeof(VariableIngredient));
-            }
-            if (!forbiddenParses.Contains(typeof(GroupIngredient)))
-            {
-               forbiddenParses.Add(typeof(GroupIngredient));
-               node ??= GroupIngredient.Parse(source, ref index, ref forbiddenParses);
-               forbiddenParses.Remove(typeof(GroupIngredient));
-            }
-            if (!forbiddenParses.Contains(typeof(ItemIngredient)))
-            {
-               forbiddenParses.Add(typeof(ItemIngredient)); //"" ""
-               node ??= ItemIngredient.Parse(source, ref index, ref forbiddenParses);
-               forbiddenParses.Remove(typeof(ItemIngredient));
+               int ttind = index;
+               Token openParen = source[ttind++];
+               if (openParen.Type == TokenType.LParen)
+               {
+                  node = GroupIngredient.Parse(source, ref ttind, ref forbiddenParses);
+                  Token closeParen = source[ttind++];
+                  if (closeParen.Type == TokenType.RParen)
+                  {
+                     //success!
+                     index = ttind;
+                  }
+                  else
+                     node = null;
+               }
             }
             return node;
          }
@@ -162,7 +218,7 @@ namespace PascalCompiler.NewParser
             return ii;
          }
          public override string ToString() => (nt?.ToString() ?? t?.ToString())!.Trim();
-         internal new static ItemIngredient? Parse(IReadOnlyList<Token> source, ref int index, ref HashSet<Type> forbiddenParses)
+         internal new static ItemIngredient? Parse(IReadOnlyList<Token> source, ref int index, ref Stack<(Type t, int ind)> forbiddenParses)
          {
             //prologue
             int tind = index;
@@ -171,19 +227,19 @@ namespace PascalCompiler.NewParser
             //body
             //optionally encapsulated in '(' ')'
             //if so, consume the open paren, recursively call ItemIngredient.Parse, then consume close paren
-            int ttind = tind;
-            Token openParenToken = source[ttind++];
-            if (openParenToken.Type == TokenType.LParen)
-            {
-               tind = ttind;
-               ItemIngredient? ii = ItemIngredient.Parse(source, ref tind, ref forbiddenParses);
-               Token closeParenToken = source[tind++];
-               if (closeParenToken.Type == TokenType.RParen)
-               {
-                  node = ii;
-               }
-            }
-            else
+            //int ttind = tind;
+            //Token openParenToken = source[ttind++];
+            //if (openParenToken.Type == TokenType.LParen)
+            //{
+            //   tind = ttind;
+            //   ItemIngredient? ii = ItemIngredient.Parse(source, ref tind, ref forbiddenParses);
+            //   Token closeParenToken = source[tind++];
+            //   if (closeParenToken.Type == TokenType.RParen)
+            //   {
+            //      node = ii;
+            //   }
+            //}
+            //else
             {
                Token termOrNontermToken = source[tind++];
                if (termOrNontermToken.Type == TokenType.Terminal)
@@ -222,14 +278,34 @@ namespace PascalCompiler.NewParser
                case VariableIngredientType.UNDEFINED:
                   throw new Exception();
                case VariableIngredientType.ZeroOrOne:
-                  return $" [ {item.ToString().Trim()} ] ";
+                  {
+                     //original def:
+                     //return $" [ {item.ToString().Trim()} ] ";
+
+                     //remove () from inner GroupIngredient if is a GroupIngredient.
+                     if (item is GroupIngredient gi)
+                     {
+                        return $" [ {item.ToString().Trim(' ').Trim('(', ')').Trim(' ')} ] ";
+                     }
+                     else return $" [ {item.ToString().Trim()} ] ";
+                  }
                case VariableIngredientType.ZeroOrMore:
-                  return $" {{ {item.ToString().Trim()} }} ";
+                  {
+                     //original def:
+                     //return $" {{ {item.ToString().Trim()} }} ";
+
+                     //remove () from inner GroupIngredient if is a GroupIngredient.
+                     if (item is GroupIngredient gi)
+                     {
+                        return $" {{ {item.ToString().Trim(' ').Trim('(', ')').Trim(' ')} }} ";
+                     }
+                     else return $" {{ {item.ToString().Trim()} }} ";
+                  }
                default:
                   throw new Exception();
             }
          }
-         internal new static VariableIngredient? Parse(IReadOnlyList<Token> source, ref int index, ref HashSet<Type> forbiddenParses)
+         internal new static VariableIngredient? Parse(IReadOnlyList<Token> source, ref int index, ref Stack<(Type t, int ind)> forbiddenParses)
          {
             //prologue
             int tind = index;
@@ -238,19 +314,19 @@ namespace PascalCompiler.NewParser
             //body
             //optionally encapsulated in '(' ')'
             //if so, consume the open paren, recursively call GroupIngredient.Parse, then consume close paren
-            int ttind = tind;
-            Token openParenToken = source[ttind++];
-            if (openParenToken.Type == TokenType.LParen)
-            {
-               tind = ttind;
-               VariableIngredient? vi = VariableIngredient.Parse(source, ref tind, ref forbiddenParses);
-               Token closeParenToken = source[tind++];
-               if (closeParenToken.Type == TokenType.RParen)
-               {
-                  node = vi;
-               }
-            }
-            else
+            //int ttind = tind;
+            //Token openParenToken = source[ttind++];
+            //if (openParenToken.Type == TokenType.LParen)
+            //{
+            //   tind = ttind;
+            //   VariableIngredient? vi = VariableIngredient.Parse(source, ref tind, ref forbiddenParses);
+            //   Token closeParenToken = source[tind++];
+            //   if (closeParenToken.Type == TokenType.RParen)
+            //   {
+            //      node = vi;
+            //   }
+            //}
+            //else
             {
                Token openCurlyOrSquareToken = source[tind++];
                if (openCurlyOrSquareToken.Type == TokenType.LSquare)
@@ -303,7 +379,7 @@ namespace PascalCompiler.NewParser
             else return false;
          }
          public override int GetHashCode() => base.GetHashCode();
-         internal new static Ingredient? Parse(IReadOnlyList<Token> source, ref int index, ref HashSet<Type> forbiddenParses)
+         internal new static Ingredient? Parse(IReadOnlyList<Token> source, ref int index, ref Stack<(Type t, int ind)> forbiddenParses)
          {
             //prologue
             int tind = index;
@@ -331,11 +407,37 @@ namespace PascalCompiler.NewParser
                List<Ingredient> groupIngredients = new List<Ingredient>();
                while (true)
                {
-                  Ingredient? ii = Ingredient.Parse(source, ref tind, ref forbiddenParses);
+                  //this only checks for parens around this item, we need to check for parens around the whole group ?too?/?instead??
+                  Ingredient? ii = null;
+                  //{ //try eat parens first
+                  //   int ttind = tind;
+                  //   Token openParenToken = source[ttind++];
+                  //   if (openParenToken.Type == TokenType.LParen)
+                  //   {
+                  //      forbiddenParses.Push((typeof(GroupIngredient), ttind));
+                  //      Ingredient? gi = GroupIngredient.Parse(source, ref ttind, ref forbiddenParses);
+                  //      forbiddenParses.Pop();
+                  //      Token closeParenToken = source[ttind++];
+                  //      if (closeParenToken.Type == TokenType.RParen)
+                  //      {
+                  //         ii = gi;
+                  //         tind = ttind;
+                  //      }
+                  //   }
+                  //}
+                  if (ii == null)
+                  {
+                     forbiddenParses.Push((typeof(GroupIngredient), tind));
+                     ii = Ingredient.Parse(source, ref tind, ref forbiddenParses);
+                     forbiddenParses.Pop();
+                  }
                   if (ii != null)
                   {
                      if (ii is GroupIngredient)
-                        groupIngredients.AddRange(((GroupIngredient)ii).ingredientsAsItems); //flatten
+                     {
+                        //throw new Exception("Tried to add a GroupIngredient as a child of a GroupIngredient.");
+                        groupIngredients.AddRange(((GroupIngredient)ii).ingredients); //flatten
+                     }
                      else
                         groupIngredients.Add(ii);
                   }
@@ -363,7 +465,7 @@ namespace PascalCompiler.NewParser
             return oi;
          }
          public override string ToString() => $"( {lhs.ToString().Trim()} | {rhs.ToString().Trim()} )";
-         internal new static OrIngredient? Parse(IReadOnlyList<Token> source, ref int index, ref HashSet<Type> forbiddenParses)
+         internal new static OrIngredient? Parse(IReadOnlyList<Token> source, ref int index, ref Stack<(Type t, int ind)> forbiddenParses)
          {
             //prologue
             int tind = index;
@@ -372,35 +474,37 @@ namespace PascalCompiler.NewParser
             //body
             //optionally encapsulated in '(' ')'
             //if so, consume the open paren, recursively call GroupIngredient.Parse, then consume close paren
-            int ttind = tind;
-            Token openParenToken = source[ttind++];
-            if (openParenToken.Type == TokenType.LParen)
+            //int ttind = tind;
+            //Token openParenToken = source[ttind++];
+            //if (openParenToken.Type == TokenType.LParen)
+            //{
+            //   tind = ttind;
+            //   OrIngredient? oi = OrIngredient.Parse(source, ref tind, ref forbiddenParses);
+            //   Token closeParenToken = source[tind++];
+            //   if (closeParenToken.Type == TokenType.RParen)
+            //   {
+            //      node = oi;
+            //   }
+            //}
+            //else
             {
-               tind = ttind;
-               OrIngredient? oi = OrIngredient.Parse(source, ref tind, ref forbiddenParses);
-               Token closeParenToken = source[tind++];
-               if (closeParenToken.Type == TokenType.RParen)
-               {
-                  node = oi;
-               }
-            }
-            else
-            {
-               Ingredient? i = Ingredient.Parse(source, ref tind, ref forbiddenParses); //forbid here
+               forbiddenParses.Push((typeof(OrIngredient), tind));
+               Ingredient? i = GroupIngredient.Parse(source, ref tind, ref forbiddenParses); //forbid here
+               forbiddenParses.Pop();
                if (i != null)
                {
                   Token pipeToken = source[tind++];
                   if (pipeToken.Type == TokenType.Pipe)
                   {
                      Ingredient? i2;
-                     if (forbiddenParses.Contains(typeof(OrIngredient)))
-                     {
-                        forbiddenParses.Remove(typeof(OrIngredient));
-                        i2 = Ingredient.Parse(source, ref tind, ref forbiddenParses); //but not here
-                        forbiddenParses.Add(typeof(OrIngredient));
-                     }
-                     else
-                        i2 = Ingredient.Parse(source, ref tind, ref forbiddenParses); //but not here
+                     //if (forbiddenParses.Contains(typeof(OrIngredient)))
+                     //{
+                     //   forbiddenParses.Remove(typeof(OrIngredient));
+                     //   i2 = GroupIngredient.Parse(source, ref tind, ref forbiddenParses); //but not here
+                     //   forbiddenParses.Add(typeof(OrIngredient));
+                     //}
+                     //else
+                     i2 = GroupIngredient.Parse(source, ref tind, ref forbiddenParses); //but not here
                      if (i2 != null)
                      {
                         node = new OrIngredient(i, i2);
@@ -1859,8 +1963,21 @@ namespace PascalCompiler.NewParser
       #region GrammarParser
       private static Production Parse(IReadOnlyList<Token> source)
       {
+         //field-list  = ( [ ( fixed-part ( [ ( ';' variant-part ) ] | variant-part ) [ ';' ] ) ] ) .
          //"constant = [ sign ] ( unsigned-number | constant-identifier ) | character-string ."
-         //the above def(s) might be too ambiguous to parse.
+         //the above def(s) might be too ambiguous to parse/are known to be "tricky" defs.
+
+         /*
+          field-list = 
+             [
+                 fixed-part 
+                 ( 
+                    [ ( ';' variant-part ) ] | variant-part
+                 )
+                 [ ';' ]
+             ] .
+          */
+
          Production? p = null;
          int ind = 0;
          while (ind < source.Count)
