@@ -191,12 +191,12 @@ namespace PascalCompiler
 #if DEBUG
          for (int i = 0; i < sources.Count; i++)
          {
-            NewParser.Parser.Parse(sources[i]);
+            Parser.Parser.Parse(sources[i]);
          }
 #else
          Parallel.For(0, sources.Count, (i) =>
          {
-            NewParser.Parser.Parse(sources[i]);
+            Parser.Parser.Parse(sources[i]);
          });
 #endif
          foreach (Source s in sources)

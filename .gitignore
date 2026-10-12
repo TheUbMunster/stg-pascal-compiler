@@ -399,3 +399,8 @@ FodyWeavers.xsd
 
 /Grammar.md
 /Grammar.txt
+/CLAUDE.md
+/AnnexAQuery/PascalGrammar.cs
+/PascalCompilerUnitTests/GrammarAnalysis.cs
+/PascalCompilerUnitTests/GrammarTests.cs
+/PascalCompilerUnitTests/ParseTests.cs

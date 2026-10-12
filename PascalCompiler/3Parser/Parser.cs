@@ -74,7 +74,7 @@ namespace PascalCompiler.Parser
       };
       public static readonly ASTNode UndefinedNode = new ASTNode() { nodeType = ASTNodeType.UNDEFINED };
       protected ASTNode() { }
-      protected Source MySource { get; init; } = null!;
+      protected internal Source MySource { get; init; } = null!;
       private ASTNodeType? nodeType = null!;
       public ASTNodeType NodeType 
       {
@@ -82,7 +82,10 @@ namespace PascalCompiler.Parser
          {
             if (nodeType == null)
             {
-               if (Enum.TryParse<ASTNodeType>(GetType().Name, out ASTNodeType n))
+               Type nodeClass = GetType();
+               if (this is IAmbiguous) //a placeholder (Factor.Ambiguous etc.) stands in for its base class, see IAmbiguous
+                  nodeClass = nodeClass.BaseType!;
+               if (Enum.TryParse<ASTNodeType>(nodeClass.Name, out ASTNodeType n))
                   nodeType = n;
                else
                   throw new Exception($"Could not retrieve the ASTNodeType for object of type {GetType().Name}");
@@ -128,6 +131,66 @@ namespace PascalCompiler.Parser
       }
 
       /// <summary>
+      /// Returns true if the lexer tokens in [startIndex, endIndex) form a single lexical token in the sense of 6.1.8: token
+      /// separators (whitespace, linebreaks, comments) may come before the first token, but never between the rest.
+      /// The nonterminals of 6.1 (identifier, digit-sequence, unsigned-real, ...) are assembled by the parser out of
+      /// single-character tokens, so without this check "foo bar" would be accepted as the identifier "foobar" and
+      /// "1 .5" as the real "1.5". Note that the lexer doesn't emit separators as tokens; it attaches them to the token
+      /// that follows them (Token.AbsorbedTokens).
+      /// </summary>
+      protected static bool IsSingleLexicalToken(Source source, int startIndex, int endIndex)
+      {
+         var tokens = source.LexerTokens;
+         int i = startIndex;
+         while (i < endIndex && skippableTokenTypes.Contains(tokens[i].Type))
+            i++; //separators before the first token are fine, they belong to it.
+         for (i = i + 1; i < endIndex; i++)
+         {
+            if (skippableTokenTypes.Contains(tokens[i].Type) || tokens[i].AbsorbedTokens.Count > 0)
+               return false;
+         }
+         return true;
+      }
+
+      /// <summary>One alternative of a nonterminal, in the shape of every Parse method: returns the node or null, and advances index only on success.</summary>
+      protected delegate T? Alternative<T>(Source source, ref int index) where T : ASTNode;
+
+      /// <summary>
+      /// For a nonterminal whose alternatives can be spelled identically (see IAmbiguous). Every alternative is parsed from the
+      /// same position; the ones that consumed the most tokens survive, because a shorter match is not another reading of the same
+      /// text but a prefix of it (the variable-access "f" is not a reading of "f(1)"). One survivor is returned as is; two or
+      /// more are handed to <paramref name="placeholder"/> (normally the Ambiguous.Create of the class) and the placeholder is
+      /// returned; null when no alternative matched. index is advanced past the survivors' tokens.
+      ///
+      /// Dropping the shorter readings is a greedy choice, and it is only correct when the shorter reading could not have been continued:
+      /// the token that a longer reading went on with must not be one that may legally follow the nonterminal, otherwise the shorter
+      /// reading plus that continuation would be a second parse of the parent and the ambiguity would not be local to this node.
+      /// Every call site states why that holds for it; it is a property of the grammar's FOLLOW sets and can be checked from them.
+      /// </summary>
+      protected static T? ParseLongest<T>(Source source, ref int index, Func<Source, IReadOnlyList<T>, T> placeholder, params Alternative<T>[] alternatives) where T : ASTNode
+      {
+         List<T> survivors = new List<T>();
+         int survivorsEnd = -1;
+         foreach (Alternative<T> alternative in alternatives)
+         {
+            int tind = index;
+            T? candidate = alternative(source, ref tind);
+            if (candidate == null)
+               continue;
+            if (tind > survivorsEnd)
+            {
+               survivors.Clear();
+               survivorsEnd = tind;
+            }
+            if (tind == survivorsEnd)
+               survivors.Add(candidate);
+         }
+         if (survivors.Count == 0)
+            return null;
+         index = survivorsEnd;
+         return survivors.Count == 1 ? survivors[0] : placeholder(source, survivors);
+      }
+      /// <summary>
       /// This function asserts that all the necessary fields are assigned during construction.
       /// This includes situations where it might be legal for only some fields to be assigned,
       /// but only in specific combinations. Required to be overrided and implemented in subclasses.
@@ -167,35 +230,30 @@ namespace PascalCompiler.Parser
    {
       public static void Parse(Source source)
       {
-         //i'm 80% sure that since "Program" is the start symbol, and the program ?must? be terminated by the last "end ." in the file, that
-         //any file parsed will result in one mega ASTNode, not a list?
+         //"program" is the start symbol, and a program is terminated by its final '.', so a source file parses to exactly one
+         //Program node. The only things allowed after it are skippable tokens (whitespace, linebreaks, comments) and the EOF token.
+         var tokens = source.LexerTokens;
          int ind = 0;
-         bool firstIter = true;
-         while (ind < source.LexerTokens.Count/* && source.LexerTokens[ind].Type != TokenType.END_OF_FILE*/)
+         ASTNode? node = ASTNode.Parse(source, ref ind);
+         if (node == null)
          {
-            int indBefore = ind;
-            ASTNode? node = ASTNode.Parse(source, ref ind);
-            if (node == null/* || node.NodeType == ASTNodeType.UNDEFINED*/)
-            {
-               source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "No valid candidates for parsing token", source.LexerTokens[ind].FileLocation, true));
-               throw new Exception(); //todo: put a message in this??
-            }
-            else if (indBefore == ind)
-            {
-               source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "The root parse function parsed a non-null node, and yet it consumed no tokens! No progress in the token stream was made, so this will go on forever; breaking free.", node.FileLocation, true));
-               throw new Exception(); //todo: put a message in this??
-            }
-            if (firstIter)
-            {
-               firstIter = false;
-               if (node.NodeType != ASTNodeType.Program)
-               {
-                  source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "The first AST Node parsed was not the 'Program' node!", node.FileLocation, true));
-                  throw new Exception(); //todo: put a message in this??
-               }
-            }
+            int errorLocation = tokens.Count > 0 ? tokens[Math.Min(ind, tokens.Count - 1)].FileLocation : 0;
+            source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "No valid candidates for parsing token", errorLocation, true));
+            return;
+         }
+         if (node.NodeType != ASTNodeType.Program)
+         {
+            source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "The first AST Node parsed was not the 'Program' node!", node.FileLocation, true));
+            return;
+         }
+         source.AddParserNode(node);
 
-            source.AddParserNode(node);
+         while (ind < tokens.Count && (Token.absorbedTypes.Contains(tokens[ind].Type) || tokens[ind].Type == TokenType.EOF))
+            ind++;
+         if (ind < tokens.Count)
+         {
+            source.AppendMessage(new Source.Message(Source.CompilerPhase.Parse, Source.Severity.Error, "Unexpected content after the end of the program", tokens[ind].FileLocation, true));
+            return;
          }
          source.ParsingComplete();
       }
