@@ -1,4 +1,6 @@
-﻿using System;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -172,5 +174,26 @@ namespace PascalCompiler.Parser
       WriteParameter,
       WriteParameterList,
       WritelnParameterList,
+   }
+   /// <summary>
+   /// Declares that exactly one of the named members of the node is set: the node's rule is an alternation (e.g. type-denoter =
+   /// type-identifier | new-type). Checked by ASTNode.AssertCorrectStructure, together with the members' nullability annotations.
+   /// </summary>
+   [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+   public sealed class OneOfAttribute : Attribute
+   {
+      public IReadOnlyList<string> Members { get; }
+      public OneOfAttribute(params string[] members) { Members = members; }
+   }
+
+   /// <summary>
+   /// Declares that the named members are either all set or all unset: they form an optional group of the node's rule
+   /// (e.g. the [ 'label' label { ',' label } ';' ] of label-declaration-part). Checked by ASTNode.AssertCorrectStructure.
+   /// </summary>
+   [AttributeUsage(AttributeTargets.Class, AllowMultiple = true)]
+   public sealed class TogetherAttribute : Attribute
+   {
+      public IReadOnlyList<string> Members { get; }
+      public TogetherAttribute(params string[] members) { Members = members; }
    }
 }

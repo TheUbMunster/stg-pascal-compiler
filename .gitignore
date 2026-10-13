@@ -396,6 +396,14 @@ FodyWeavers.xsd
 
 # JetBrains Rider
 *.sln.iml
+
 /Grammar.md
-/AnnexAQuery/**/*
 /Grammar.txt
+/CLAUDE.md
+/AnnexAQuery/PascalGrammar.cs
+/PascalCompilerUnitTests/GrammarAnalysis.cs
+/PascalCompilerUnitTests/GrammarTests.cs
+/PascalCompilerUnitTests/ParseTests.cs
+/email.txt
+/grammar txt.txt
+/PascalCompiler/3NewParser/*.grammar

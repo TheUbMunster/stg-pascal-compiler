@@ -1,0 +1,24 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Antlr4 Include="TestGrammar.g4">
+      <Generator>MSBuild:Compile</Generator>
+      <CustomToolNamespace>AntlrTest</CustomToolNamespace>
+    </Antlr4>
+	<Content Include="TestGrammar.g4">
+	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+	</Content>
+  </ItemGroup>
+
+  <ItemGroup>
+	<PackageReference Include="Antlr4.Runtime.Standard" Version="4.13.1" />
+	<PackageReference Include="Antlr4BuildTasks" Version="12.8.0" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

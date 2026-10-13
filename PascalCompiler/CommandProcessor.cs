@@ -1,15 +1,19 @@
-﻿using System;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using static System.Environment;
 using System.Collections.Generic;
 using System.Collections.Concurrent;
 using System.Linq;
 using System.Text;
+using System.IO;
 using System.Threading.Tasks;
 using PascalCompiler.Lexer;
 using PascalCompiler.Scanner;
+using System;
 
 namespace PascalCompiler
 {
-    static class CommandProcessor
+   public static class CommandProcessor
    {
       #region Consts
       private static Flag[] flagDefs = new Flag[]
@@ -29,7 +33,7 @@ namespace PascalCompiler
          new Flag("s", "(DEBUG) This flag is if you want to lex, parse, typecheck, and emit assembly from the source only. " +
             "If an output file name is specified, the output will be written to the output file. " +
             "If not, it will be printed to stdout.", new[] { "r", "l", "p", "t", "O0", "O1", "O2", "O3" }),
-         new Flag("O0", "This flag indicates to the compiler to perform no optimizations", 
+         new Flag("O0", "This flag indicates to the compiler to perform no optimizations",
             new[] { "r", "l", "p", "t", "s", "O1", "O2", "O3" }),
          new Flag("O1", "This flag indicates to the compiler to perform minimal optimizations",
             new[] { "r", "l", "p", "t", "s", "O0", "O2", "O3" }),
@@ -37,9 +41,17 @@ namespace PascalCompiler
             new[] { "r", "l", "p", "t", "s", "O0", "O1", "O3" }),
          new Flag("O3", "This flag indicates to the compiler to perform all optimizations",
             new[] { "r", "l", "p", "t", "s", "O0", "O1", "O2" }),
-         new Flag("n", "The output name of the log file or executable", new string[] { }), //todo: implement logging
+         new Flag("no-ansi", "This flag indicates to use no ansi codes in stdout", new string[] {})
+         //new Flag("n", "The output name of the log file or executable", new string[] { }), //todo: implement logging
          //todo: add "interpret" flag
       };
+      public static readonly string scanSucceedMessage = "Success: scan check complete";
+      public static readonly string lexSucceedMessage = "Success: lexical analysis complete";
+      public static readonly string parseSucceedMessage = "Success: parsing complete";
+
+      public static readonly string scanFailMessage = "Compilation failed at the SourceScan stage";
+      public static readonly string lexFailMessage = "Compilation failed at the Lexer stage";
+      public static readonly string parseFailMessage = "Compilation failed at the Parser stage";
       #endregion
 
       #region Typedefs
@@ -53,19 +65,21 @@ namespace PascalCompiler
       private record struct Flag(string flagName, string helpMessage, string[] mutualExclusionFlags);
       #endregion
       //todo: make this function the entry point for unit testing methods, add the ability to past streams instead of filepaths via args.
-      public static int Process(string[] args)
+      public static int Process(string[] args, TextWriter outputWriter)
       {
+         //overhaul this so flags and nonflags orderings are preserved.
+         //also strip empty entries?
          IReadOnlyList<string> flags = args.Where(x => x.StartsWith("-")).Select(x => x.Substring(1)).ToList();
          IReadOnlyList<string> nonflags = args.Where(x => !x.StartsWith("-")).ToList();
          //check for help
          if (flags.Contains("-help") || flags.Contains("help") || flags.Contains("h"))
          {
-            Console.WriteLine("PascalCompiler - an ISO/IEC 7185:1990(E) pascal compiler written by TheUbMunster" + Environment.NewLine +
-               "Usage: [flags...] [filepath...]" + Environment.NewLine + // | source
-               "Flags:" + Environment.NewLine +
-               "\t--help | -help | -h - Prints this help message." + Environment.NewLine + Environment.NewLine +
-               string.Join(Environment.NewLine, flagDefs.Select(x => $"\t-{x.flagName} - {x.helpMessage}{Environment.NewLine}\tThis flag cannot appear with the following flags: {string.Join(", ", x.mutualExclusionFlags)}{Environment.NewLine}")) + 
-               "Filepath:" + Environment.NewLine +
+            outputWriter.WriteLine("PascalCompiler - an ISO/IEC 7185:1990(E) pascal compiler written by TheUbMunster" + NewLine +
+               "Usage: [flags...] [filepath...]" + NewLine + // | source
+               "Flags:" + NewLine +
+               "\t--help | -help | -h - Prints this help message." + NewLine + NewLine +
+               string.Join(NewLine, flagDefs.Select(x => $"\t-{x.flagName} - {x.helpMessage}{NewLine}\tThis flag cannot appear with the following flags: {string.Join(", ", x.mutualExclusionFlags)}{NewLine}")) +
+               "Filepath:" + NewLine +
                "\tfilepath(s) to pascal source file(s) to compile."); //need to disambiguate source file(s) from program arguments (when running via interpreter mode, maybe make each file be preceeded with -f, i.e., -ffilename.pas).
             return 0;
          }
@@ -80,13 +94,13 @@ namespace PascalCompiler
          }
          if (errorAgg.Length > 0)
          {
-            Console.Error.WriteLine(errorAgg.ToString());
+            outputWriter.WriteLine(errorAgg.ToString());
             return -1;
          }
          //check if we're being asked to operate on any files.
          if (nonflags.Count == 0)
          {
-            Console.Error.WriteLine("No non-flag arguments, nothing to do.");
+            outputWriter.WriteLine("No non-flag arguments, nothing to do.");
             return -1;
          }
          //==============
@@ -95,24 +109,35 @@ namespace PascalCompiler
          List<Source> sources;
          {
             ConcurrentBag<Source> cSources = new();
+#if DEBUG
+            for (int i = 0; i < nonflags.Count; i++)
+            {
+               string path = Path.GetFullPath(nonflags[i]);
+               cSources.Add(new Source(path));
+            };
+#else
             Parallel.For(0, nonflags.Count, (i) =>
             {
                string path = Path.GetFullPath(nonflags[i]);
                cSources.Add(new Source(path));
             });
+#endif
             sources = cSources.ToList();
          }
          foreach (Source s in sources)
          {
+            //TODO: change this so that messages are only read out
+            //    1. at the very end
+            //    2. when an error occurs, just before exiting
             foreach (Source.Message m in s.Messages)
             {
-               PrintMessage(s, m);
+               PrintMessage(s, m, outputWriter, !flags.Contains("no-ansi"));
             }
             s.ClearMessages();
          }
          if (sources.Any(s => s.ErrorHasOccurred))
          {
-            Console.Error.WriteLine("Compilation failed at the SourceScan stage.");
+            outputWriter.WriteLine(scanFailMessage);
             return -1;
          }
          if (flags.Contains("r"))
@@ -121,245 +146,302 @@ namespace PascalCompiler
             //{
             //   Console.WriteLine("idk");
             //}
-            Console.WriteLine("Compilation succeeded: scan check complete");
+            outputWriter.WriteLine(scanSucceedMessage);
             return 0;
          }
          //=====
          // LEX
          //=====
+#if DEBUG
+         for (int i = 0; i < sources.Count; i++)
+         {
+            Lexer.Lexer.Lex(sources[i]);
+         }
+#else
          Parallel.For(0, sources.Count, (i) =>
          {
             Lexer.Lexer.Lex(sources[i]);
          });
+#endif
          foreach (Source s in sources)
          {
             foreach (Source.Message m in s.Messages)
             {
-               PrintMessage(s, m);
+               PrintMessage(s, m, outputWriter, !flags.Contains("no-ansi"));
             }
             s.ClearMessages();
          }
          if (sources.Any(s => s.ErrorHasOccurred))
          {
-            Console.Error.WriteLine("Compilation failed at the Lexer stage.");
+            outputWriter.WriteLine(lexFailMessage);
             return -1;
          }
          if (flags.Contains("l"))
          {
             foreach (Source s in sources)
             {
-               Console.WriteLine(string.Join("\n", s.LexerTokens));
+               outputWriter.WriteLine(string.Join("\n", s.LexerTokensFlattenedView));
             }
-            Console.WriteLine("Compilation succeeded: lexical analysis complete");
+            outputWriter.WriteLine(lexSucceedMessage);
             return 0;
          }
          //=======
          // PARSE
          //=======
+#if DEBUG
+         for (int i = 0; i < sources.Count; i++)
+         {
+            Parser.Parser.Parse(sources[i]);
+         }
+#else
          Parallel.For(0, sources.Count, (i) =>
          {
             Parser.Parser.Parse(sources[i]);
          });
+#endif
          foreach (Source s in sources)
          {
             foreach (Source.Message m in s.Messages)
             {
-               PrintMessage(s, m);
+               PrintMessage(s, m, outputWriter, !flags.Contains("no-ansi"));
             }
             s.ClearMessages();
          }
          if (sources.Any(s => s.ErrorHasOccurred))
          {
-            Console.Error.WriteLine("Compilation failed at the Lexer stage.");
+            outputWriter.WriteLine(parseFailMessage);
             return -1;
          }
          if (flags.Contains("p"))
          {
             foreach (Source s in sources)
             {
-               Console.WriteLine(string.Join("\n", s.LexerTokens));
+               outputWriter.WriteLine(string.Join("\n", s.LexerTokens));
             }
-            Console.WriteLine("Compilation succeeded: parsing complete");
+            outputWriter.WriteLine(parseSucceedMessage);
             return 0;
          }
          //===========
          // TYPECHECK
          //===========
 
-         throw new NotImplementedException(); //at the very end
+         throw new System.NotImplementedException(); //at the very end
       }
-      public static void PrintMessage(Source source, Source.Message message)
+      public static void PrintMessage(Source source, Source.Message message, TextWriter outputWriter, bool doAnsiColoring)
       {
-         IReadOnlyDictionary<TokenType, ConsoleColor> lexemColors = new Dictionary<TokenType, ConsoleColor>()
+         (TokenType tt, int len) GetTokenTypeAtFileLocation(int fileLocation)
          {
-            { TokenType.CharacterString, ConsoleColor.DarkRed },
-            { TokenType.Digit, ConsoleColor.Cyan },
-            { TokenType.Letter, ConsoleColor.Cyan },
+            foreach (Token tok in source.LexerTokensFlattenedView)
+            {
+               if (tok.FileLocation <= fileLocation && fileLocation < tok.FileLocation + tok.TokenLength)
+                  return (tok.Type, (tok.FileLocation + tok.TokenLength) - fileLocation);
+            }
+            source.AppendMessage(new(Source.CompilerPhase.Runtime, Source.Severity.Error, "During the compiler's attempt to report a line(s) of code, the compiler attempted to refer to the lexem type of an unlexed portion of code.", null, true));
+            throw new Exception("An error occurred in the compiler, see the message log.");
+         }
+         //string is ansi color code https://talyian.github.io/ansicolors/
+         IReadOnlyDictionary<TokenType, string> lexemColors = new Dictionary<TokenType, string>()
+         {
+            { TokenType.CharacterString,      "\x1b[38;5;208m" },
+            { TokenType.Digit,                "\x1b[36m" },
+            { TokenType.Letter,               "\x1b[36m" },
             //keywords
-            { TokenType.And, ConsoleColor.Blue },
-            { TokenType.Array, ConsoleColor.Blue },
-            { TokenType.Begin, ConsoleColor.Blue },
-            { TokenType.Case, ConsoleColor.Blue },
-            { TokenType.Const, ConsoleColor.Blue },
-            { TokenType.Div, ConsoleColor.Blue },
-            { TokenType.Do, ConsoleColor.Blue },
-            { TokenType.Downto, ConsoleColor.Blue },
-            { TokenType.Else, ConsoleColor.Blue },
-            { TokenType.End, ConsoleColor.Blue },
-            { TokenType.File, ConsoleColor.Blue },
-            { TokenType.For, ConsoleColor.Blue },
-            { TokenType.Function, ConsoleColor.Blue },
-            { TokenType.Goto, ConsoleColor.Blue },
-            { TokenType.If, ConsoleColor.Blue },
-            { TokenType.In, ConsoleColor.Blue },
-            { TokenType.Label, ConsoleColor.Blue },
-            { TokenType.Mod, ConsoleColor.Blue },
-            { TokenType.Nil, ConsoleColor.Blue },
-            { TokenType.Not, ConsoleColor.Blue },
-            { TokenType.Of, ConsoleColor.Blue },
-            { TokenType.Or, ConsoleColor.Blue },
-            { TokenType.Packed, ConsoleColor.Blue },
-            { TokenType.Procedure, ConsoleColor.Blue },
-            { TokenType.Program, ConsoleColor.Blue },
-            { TokenType.Record, ConsoleColor.Blue },
-            { TokenType.Repeat, ConsoleColor.Blue },
-            { TokenType.Set, ConsoleColor.Blue },
-            { TokenType.Then, ConsoleColor.Blue },
-            { TokenType.To, ConsoleColor.Blue },
-            { TokenType.Type, ConsoleColor.Blue },
-            { TokenType.Until, ConsoleColor.Blue },
-            { TokenType.Var, ConsoleColor.Blue },
-            { TokenType.While, ConsoleColor.Blue },
-            { TokenType.With, ConsoleColor.Blue },
+            { TokenType.And,                  "\x1b[34m" },
+            { TokenType.Array,                "\x1b[34m" },
+            { TokenType.Begin,                "\x1b[34m" },
+            { TokenType.Case,                 "\x1b[34m" },
+            { TokenType.Const,                "\x1b[34m" },
+            { TokenType.Div,                  "\x1b[34m" },
+            { TokenType.Do,                   "\x1b[34m" },
+            { TokenType.Downto,               "\x1b[34m" },
+            { TokenType.Else,                 "\x1b[34m" },
+            { TokenType.End,                  "\x1b[34m" },
+            { TokenType.File,                 "\x1b[34m" },
+            { TokenType.For,                  "\x1b[34m" },
+            { TokenType.Function,             "\x1b[34m" },
+            { TokenType.Goto,                 "\x1b[34m" },
+            { TokenType.If,                   "\x1b[34m" },
+            { TokenType.In,                   "\x1b[34m" },
+            { TokenType.Label,                "\x1b[34m" },
+            { TokenType.Mod,                  "\x1b[34m" },
+            { TokenType.Nil,                  "\x1b[34m" },
+            { TokenType.Not,                  "\x1b[34m" },
+            { TokenType.Of,                   "\x1b[34m" },
+            { TokenType.Or,                   "\x1b[34m" },
+            { TokenType.Packed,               "\x1b[34m" },
+            { TokenType.Procedure,            "\x1b[34m" },
+            { TokenType.Program,              "\x1b[34m" },
+            { TokenType.Record,               "\x1b[34m" },
+            { TokenType.Repeat,               "\x1b[34m" },
+            { TokenType.Set,                  "\x1b[34m" },
+            { TokenType.Then,                 "\x1b[34m" },
+            { TokenType.To,                   "\x1b[34m" },
+            { TokenType.Type,                 "\x1b[34m" },
+            { TokenType.Until,                "\x1b[34m" },
+            { TokenType.Var,                  "\x1b[34m" },
+            { TokenType.While,                "\x1b[34m" },
+            { TokenType.With,                 "\x1b[34m" },
             //operators
-            { TokenType.Plus, ConsoleColor.Yellow },
-            { TokenType.Minus, ConsoleColor.Yellow },
-            { TokenType.Asterisk, ConsoleColor.Yellow },
-            { TokenType.ForwardSlash, ConsoleColor.Yellow },
-            { TokenType.Equals, ConsoleColor.Yellow },
-            { TokenType.LessThan, ConsoleColor.Yellow },
-            { TokenType.GreaterThan, ConsoleColor.Yellow },
-            { TokenType.LeftSquareBracket, ConsoleColor.Yellow },
-            { TokenType.RightSquareBracket, ConsoleColor.Yellow },
-            { TokenType.Dot, ConsoleColor.Yellow },
-            { TokenType.Comma, ConsoleColor.Yellow },
-            { TokenType.Colon, ConsoleColor.Yellow },
-            { TokenType.Semicolon, ConsoleColor.Yellow },
-            { TokenType.UpArrow, ConsoleColor.Yellow },
-            { TokenType.OpenParen, ConsoleColor.Yellow },
-            { TokenType.CloseParen, ConsoleColor.Yellow },
-            { TokenType.KetPair, ConsoleColor.Yellow },
-            { TokenType.LessThanOrEqual, ConsoleColor.Yellow },
-            { TokenType.GreaterThanOrEqual, ConsoleColor.Yellow },
-            { TokenType.Walrus, ConsoleColor.Yellow },
-            { TokenType.DoubleDot, ConsoleColor.Yellow },
+            { TokenType.Plus,                 "\x1b[33m" },
+            { TokenType.Minus,                "\x1b[33m" },
+            { TokenType.Asterisk,             "\x1b[33m" },
+            { TokenType.ForwardSlash,         "\x1b[33m" },
+            { TokenType.Equals,               "\x1b[33m" },
+            { TokenType.LessThan,             "\x1b[33m" },
+            { TokenType.GreaterThan,          "\x1b[33m" },
+            { TokenType.LeftSquareBracket,    "\x1b[33m" },
+            { TokenType.RightSquareBracket,   "\x1b[33m" },
+            { TokenType.Dot,                  "\x1b[33m" },
+            { TokenType.Comma,                "\x1b[33m" },
+            { TokenType.Colon,                "\x1b[33m" },
+            { TokenType.Semicolon,            "\x1b[33m" },
+            { TokenType.UpArrow,              "\x1b[33m" },
+            { TokenType.OpenParen,            "\x1b[33m" },
+            { TokenType.CloseParen,           "\x1b[33m" },
+            { TokenType.KetPair,              "\x1b[33m" },
+            { TokenType.LessThanOrEqual,      "\x1b[33m" },
+            { TokenType.GreaterThanOrEqual,   "\x1b[33m" },
+            { TokenType.Walrus,               "\x1b[33m" },
+            { TokenType.DoubleDot,            "\x1b[33m" },
             //misc
-            { TokenType.Comment, ConsoleColor.Green },
-            { TokenType.WHITESPACE, ConsoleColor.White },
-            { TokenType.LINEBREAK, ConsoleColor.White },
+            { TokenType.Comment,              "\x1b[32m" },
+            { TokenType.WHITESPACE,           "\x1b[37m" },
+            { TokenType.LINEBREAK,            "\x1b[37m" },
+            { TokenType.EOF,                  "\x1b[37m" }
          };
+         string lineNumbersColor = "\x1b[35m"; //magenta foreground
+         int lgb10 = (int)System.Math.Ceiling(System.Math.Log10(source.LineCount));
+         string primaryMessageColor;
+         if (doAnsiColoring)
+            outputWriter.Write("\x1b[40m"); //black background
 
-         int lgb10 = (int)Math.Ceiling(Math.Log10(source.LineCount));
-         ConsoleColor ofg = Console.ForegroundColor, obg = Console.BackgroundColor;
-         ConsoleColor primaryMessageColor;
-         Console.BackgroundColor = ConsoleColor.Black;
          switch (message.severity)
          {
             case Source.Severity.Pedantic:
-               primaryMessageColor = ConsoleColor.White;
+               primaryMessageColor = "\x1b[37m"; //white foreground
                break;
             case Source.Severity.Information:
-               primaryMessageColor = ConsoleColor.Cyan;
+               primaryMessageColor = "\x1b[36m"; //cyan foreground
                break;
             case Source.Severity.Suggestion:
-               primaryMessageColor = ConsoleColor.Blue;
+               primaryMessageColor = "\x1b[34m"; //blue foreground
                break;
             case Source.Severity.Warning:
-               primaryMessageColor = ConsoleColor.Yellow;
+               primaryMessageColor = "\x1b[33m"; //yellow foreground
                break;
             case Source.Severity.Error:
-               primaryMessageColor = ConsoleColor.Red;
+               primaryMessageColor = "\x1b[31m"; //red foreground
                break;
             default:
-               primaryMessageColor = ConsoleColor.DarkMagenta;
+               primaryMessageColor = "\x1b[35m"; //magenta foreground
                break;
          }
-         Console.ForegroundColor = ConsoleColor.Red;
          if (message.isError)
-            Console.WriteLine("The following is an error severe enough to cause the compiler to halt:");
-
-         Console.ForegroundColor = primaryMessageColor;
-         Console.WriteLine($"{source.Filename} - [{message.phase}] [{message.severity}]: {message.message}");
+         {
+            if (doAnsiColoring)
+               outputWriter.Write("\x1b[31m"); //red foreground
+            outputWriter.WriteLine("The following is an error severe enough to cause the compiler to halt:");
+         }
+         if (doAnsiColoring)
+            outputWriter.Write(primaryMessageColor);
+         outputWriter.WriteLine($"{source.Filename} - [{message.phase}] [{message.severity}]: {message.message}");
          if (message.fileLocation.HasValue)
          {
-            Console.WriteLine($"The above error was reported to correlate to the following part of [{source.Filename}]:");
-            Console.ForegroundColor = ConsoleColor.White;
-            Console.BackgroundColor = ConsoleColor.Black;
-            //todo: add colorful source reporting if that information is avaliable.
-            var loc = source.GetLineColFromFileLocation(message.fileLocation.Value);
+            outputWriter.WriteLine($"The above error was reported to correlate to the following part of [{source.Filename}]:");
+            if (doAnsiColoring)
+            {
+               outputWriter.Write("\x1b[37m"); //white foreground
+               outputWriter.Write("\x1b[40m"); //black background
+            }
+            var linCol = source.GetLineColFromFileLocation(message.fileLocation.Value);
             const int windowSize = 3;
             for (int i = -windowSize; i < windowSize + 1; i++)
             {
-               int desiredLine = loc.line + i;
-               if (desiredLine >= 0 && desiredLine < source.LineCount)
+               int desiredLine = linCol.line + i; //0 based line index
+               if (desiredLine >= 0 && desiredLine < source.LineCount) //so long as the line is within the file bounds
                {
-                  if (desiredLine <= source.LexedUpToLineNumber)
+                  if (doAnsiColoring)
                   {
-                     List<Token> toks = source.GetLexTokenSourceLine(desiredLine);
-                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
-                     Console.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} ");
-                     int printedLength = 0;
-                     for (int tk = 0; tk < toks.Count; tk++)
-                     {
-                        if (toks[tk].Type == TokenType.LINEBREAK)
-                        {
-                           if (tk != toks.Count - 1)
-                           { //there's a linebreak and it isn't the last token in the line? WTH?
+                     outputWriter.Write("\x1b[40m"); //black background
+                     outputWriter.Write(lineNumbersColor);
+                  }
+                  outputWriter.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} "); //print line number 1 based with proper padding
 
-                           }
-                           else continue;
+                  //this stuff gets the line we're meant to print
+                  int desiredLineFileLoc = source.GetFileLocFromLineIndex(desiredLine);
+                  int desiredLinePlusOneFileLoc = source.GetFileLocFromLineIndex(desiredLine + 1);
+                  string normalLine;
+                  if (desiredLinePlusOneFileLoc != -1)
+                     normalLine = source.FileContents.Substring(desiredLineFileLoc, desiredLinePlusOneFileLoc - desiredLineFileLoc);
+                  else
+                     normalLine = source.FileContents.Substring(desiredLineFileLoc);
+                  int desiredLineLen = normalLine.Length; //calculated afterwards via string incase of -1
+
+                  if (doAnsiColoring)
+                  {
+                     for (int ind = 0; ind < desiredLineLen;)
+                     {
+                        //this for loop iterates over segments of this line, determines the color for that segment and prints it.
+                        int writtenLength;
+                        if (ind + desiredLineFileLoc < source.LexedUpToFileLocation)
+                        { //we're still in the lexed code, find the color
+                           var res = GetTokenTypeAtFileLocation(ind + desiredLineFileLoc);
+                           outputWriter.Write(lexemColors[res.tt]);
+                           writtenLength = res.len;
+                           //the colored length reported might be much longer than we even have left to print
+                           //e.g., multiline comment (but we only want to substring `normalLine` & print for this line)
+                           writtenLength = writtenLength + ind > desiredLineLen ? desiredLineLen - ind : writtenLength;
                         }
-                        Console.ForegroundColor = lexemColors[toks[tk].Type];
-                        Console.Write(toks[tk].Content);
-                        printedLength += toks[tk].TokenLength; //should we include the lengths of linebreaks?
+                        else
+                        { //we ran out of lexed code, print in black and white
+                           outputWriter.Write("\x1b[37m"); //white foreground
+                           writtenLength = desiredLineLen - ind;
+                        }
+                        if (writtenLength != -1)
+                           outputWriter.Write(normalLine.Substring(ind, writtenLength));
+                        else
+                           outputWriter.Write(normalLine.Substring(ind));
+                        ind += writtenLength;
                      }
-                     Console.ForegroundColor = ConsoleColor.White;
-                     string remainder = source.GetSourceLine(desiredLine).Substring(printedLength);
-                     Console.WriteLine(remainder);
                   }
                   else
                   {
-                     Console.BackgroundColor = ConsoleColor.Black;
-                     Console.ForegroundColor = ConsoleColor.DarkMagenta;
-                     Console.Write($"{(desiredLine + 1).ToString().PadRight(lgb10)} ");
-                     Console.ForegroundColor = ConsoleColor.White;
-                     Console.WriteLine($"{source.GetSourceLine(desiredLine)}");
+                     outputWriter.Write(normalLine); //print the line with no coloring
                   }
-                  if (i == 0)
+                  if (i == 0) //this line is the line w/ the error, print the arrow pointing at the error
                   {
                      //print a pointer to the exact character where the error is, but print it in a way where there's room.
-                     Console.ForegroundColor = ConsoleColor.Black;
-                     Console.BackgroundColor = ConsoleColor.White;
-                     string preamble = "error here ", pointer = "----^";
-                     int horizLen = loc.col + 1 + lgb10 + 1;
-                     if (horizLen >= preamble.Length + pointer.Length)
-                        Console.WriteLine($"{preamble}{pointer}".PadLeft(horizLen));
-                     else if (horizLen >= pointer.Length)
-                        Console.WriteLine($"{pointer}".PadLeft(horizLen));
+                     if (source.LineCount == desiredLine + 1) //0 based index
+                        outputWriter.Write('\n'); //need to insert newline bc the line we're reporting on is the very last line of the file
+                     if (doAnsiColoring)
+                        outputWriter.Write("\x1b[40m"); //black background
+                     string left = "error here ----^", right = "^---- error here";
+                     int horizLen = linCol.col + 1 + lgb10 + 1; //account for width introduced by the printed line numbers
+                     bool chooseLeft = horizLen >= left.Length; //do we choose "error here ----^" vs the alternative?
+                     outputWriter.Write(new string(' ', horizLen - (chooseLeft ? left.Length : 1)));
+                     if (doAnsiColoring)
+                     {
+                        outputWriter.Write("\x1b[30m"); //black foreground
+                        outputWriter.Write("\x1b[47m"); //white background
+                     }
+                     if (chooseLeft) //print the arrow
+                        outputWriter.WriteLine(left);
                      else
-                        Console.WriteLine(pointer.Substring(pointer.Length - horizLen));
-                     Console.ForegroundColor = ConsoleColor.White;
-                     Console.BackgroundColor = ConsoleColor.Black;
+                        outputWriter.WriteLine(right);
                   }
                }
             }
+            if (doAnsiColoring)
+            {
+               outputWriter.Write("\x1b[37m"); //white foreground
+               outputWriter.Write("\x1b[40m"); //black background
+            }
+            outputWriter.Write('\n');
          }
          else
          {
-            Console.WriteLine("The above error did was not reported to correlate to any particular part of the source code.");
+            outputWriter.WriteLine("The above error was not reported to correlate to any particular part of the source code.");
          }
-         Console.ForegroundColor = ofg;
-         Console.BackgroundColor = obg;
       }
    }
 }

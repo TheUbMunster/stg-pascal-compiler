@@ -1,4 +1,6 @@
-﻿using System;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -6,7 +8,7 @@ using System.Threading.Tasks;
 
 namespace PascalCompiler.Scanner
 {
-    static class LegalCharacterSet
+    public static class LegalCharacterSet
     {
         #region Consts
         //this is the list of every character that can appear within a pascal program.

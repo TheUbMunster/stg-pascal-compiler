@@ -1,4 +1,6 @@
-﻿using System;
+﻿//Copyright TheUbMunster, 2024, all rights reserved.
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -25,6 +27,7 @@ namespace PascalCompiler.Parser
       public int NodeLength { get => AllTokens.Select(x => x.TokenLength).Sum(); }
       public int FileLocation { get => AllTokens.First().FileLocation; } //the first one bc users need the very beginning, including skippables.
       public bool ContainsSkippableToken { get => Count > 1; }
+      public bool IsPrecededBySeparator { get => ContainsSkippableToken || Token.AbsorbedTokens.Count > 0; }
 
       public TokenNode(IReadOnlyList<Token> skippableTokens, Token actualToken)
       {
