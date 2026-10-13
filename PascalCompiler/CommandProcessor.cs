@@ -216,7 +216,7 @@ namespace PascalCompiler
          {
             foreach (Source s in sources)
             {
-               outputWriter.WriteLine(string.Join("\n", s.LexerTokens));
+               outputWriter.WriteLine(string.Join(Environment.NewLine, s.ParserNodes.Select(x => x.ToString(0, true)))); //the parse tree as an s-expression (-l already prints the tokens)
             }
             outputWriter.WriteLine(parseSucceedMessage);
             return 0;
