@@ -2253,33 +2253,6 @@ namespace PascalCompiler.Parser
          return node;
       }
 
-      /// <summary>
-      /// Parses what follows the record-variable in field-designator = record-variable '.' field-specifier.
-      /// The record-variable and the already-popped '.' are supplied by VariableAccess.Parse (see the comment there).
-      /// </summary>
-      internal static FieldDesignator? ParseAfterRecordVariable(Source source, ref int index, RecordVariable recordVariable, TokenNode dotToken)
-      {
-         int tind = index;
-         FieldDesignator? node = null;
-
-         FieldSpecifier? fieldSpecifier = FieldSpecifier.Parse(source, ref tind);
-         if (fieldSpecifier != null)
-         {
-            node = new FieldDesignator()
-            {
-               MySource = source,
-               FileLocation = recordVariable.FileLocation,
-
-               RecordVariable = recordVariable,
-               DotToken = dotToken,
-               FieldSpecifier = fieldSpecifier
-            };
-         }
-
-         node?.AssertCorrectStructure();
-         index = node == null ? index : tind;
-         return node;
-      }
    }
 
    public class FieldDesignatorIdentifier : ASTNode
@@ -3758,11 +3731,11 @@ namespace PascalCompiler.Parser
 
    public class IndexedVariable : ASTNode
    {
-      public ArrayVariable ArrayVariable { get; private init; } = null!;
-      public TokenNode LeftSquareBracketToken { get; private init; } = null!;
-      public IndexExpression IndexExpression { get; private init; } = null!;
-      public IReadOnlyList<(TokenNode commaToken, IndexExpression indexExpression)> SecondaryIndexExpressions { get; private init; } = null!;
-      public TokenNode RightSquareBracketToken { get; private init; } = null!;
+      public ArrayVariable ArrayVariable { get; internal init; } = null!;
+      public TokenNode LeftSquareBracketToken { get; internal init; } = null!;
+      public IndexExpression IndexExpression { get; internal init; } = null!;
+      public IReadOnlyList<(TokenNode commaToken, IndexExpression indexExpression)> SecondaryIndexExpressions { get; internal init; } = null!;
+      public TokenNode RightSquareBracketToken { get; internal init; } = null!;
       public override string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          //return $"({NodeType} {space} {separated} {content} {nodes/tokens})";
@@ -3790,57 +3763,6 @@ namespace PascalCompiler.Parser
          return node;
       }
 
-      /// <summary>
-      /// Parses what follows the array-variable in indexed-variable = array-variable '[' index-expression { ',' index-expression } ']'.
-      /// The array-variable and the already-popped '[' are supplied by VariableAccess.Parse (see the comment there).
-      /// </summary>
-      internal static IndexedVariable? ParseAfterArrayVariable(Source source, ref int index, ArrayVariable arrayVariable, TokenNode leftSquareBracketToken)
-      {
-         int tind = index;
-         IndexedVariable? node = null;
-
-         IndexExpression? indexExpression = IndexExpression.Parse(source, ref tind);
-         if (indexExpression != null)
-         {
-            List<(TokenNode commaToken, IndexExpression indexExpressions)> secondaryIndexExpressions = new();
-            {
-               while (true)
-               {
-                  int pretind = tind;
-                  TokenNode tempComma = PopToken(source, ref tind);
-                  IndexExpression? tempIndexExpression = tempComma.Type == TokenType.Comma ? IndexExpression.Parse(source, ref tind) : null;
-                  if (tempComma.Type == TokenType.Comma && tempIndexExpression != null)
-                  { //both exist (add to collection and continue)
-                     secondaryIndexExpressions.Add((tempComma, tempIndexExpression));
-                  }
-                  else //in any other situation
-                  {
-                     tind = pretind;
-                     break;
-                  }
-               }
-            }
-            TokenNode rightSquareBracketToken = PopToken(source, ref tind);
-            if (rightSquareBracketToken.Type == TokenType.RightSquareBracket)
-            {
-               node = new IndexedVariable()
-               {
-                  MySource = source,
-                  FileLocation = arrayVariable.FileLocation,
-
-                  ArrayVariable = arrayVariable,
-                  LeftSquareBracketToken = leftSquareBracketToken,
-                  IndexExpression = indexExpression,
-                  SecondaryIndexExpressions = secondaryIndexExpressions,
-                  RightSquareBracketToken = rightSquareBracketToken
-               };
-            }
-         }
-
-         node?.AssertCorrectStructure();
-         index = node == null ? index : tind;
-         return node;
-      }
    }
 
    public class InitialValue : ASTNode
@@ -8566,6 +8488,8 @@ namespace PascalCompiler.Parser
          //and likewise for field-designator, identified-variable and buffer-variable), so it is parsed iteratively: first the alternatives that
          //don't start with variable-access, then keep wrapping what we have while a '[', '.' or '^' follows. Left recursion yields a left-nested
          //tree, so the result is exactly what the grammar describes: a[i].f^ is identified-variable(pointer-variable(field-designator(...))).
+         //The parts of indexed-variable and field-designator after their recursive first symbol are parsed right here, so this is the only
+         //place in the file where those rules are parsed.
          //Two spots can't be decided syntactically and become Ambiguous (see IAmbiguous): a bare identifier is an entire-variable or, inside a
          //with-statement, a field-designator-identifier; and "x^" is an identified-variable or a buffer-variable depending on the type of x.
          static VariableAccess? AsEntireVariable(Source source, ref int index)
@@ -8596,63 +8520,107 @@ namespace PascalCompiler.Parser
                TokenNode suffixToken = PopToken(source, ref tind);
                if (suffixToken.Type == TokenType.LeftSquareBracket)
                { //indexed-variable = array-variable '[' index-expression { ',' index-expression } ']'
-                  ArrayVariable arrayVariable = new ArrayVariable()
+                  IndexExpression? indexExpression = IndexExpression.Parse(source, ref tind);
+                  if (indexExpression != null)
                   {
-                     MySource = source,
-                     FileLocation = node.FileLocation,
+                     List<(TokenNode commaToken, IndexExpression indexExpressions)> secondaryIndexExpressions = new();
+                     {
+                        while (true)
+                        {
+                           int ppretind = tind;
+                           TokenNode tempComma = PopToken(source, ref tind);
+                           IndexExpression? tempIndexExpression = tempComma.Type == TokenType.Comma ? IndexExpression.Parse(source, ref tind) : null;
+                           if (tempComma.Type == TokenType.Comma && tempIndexExpression != null)
+                           { //both exist (add to collection and continue)
+                              secondaryIndexExpressions.Add((tempComma, tempIndexExpression));
+                           }
+                           else //in any other situation
+                           {
+                              tind = ppretind;
+                              break;
+                           }
+                        }
+                     }
+                     TokenNode rightSquareBracketToken = PopToken(source, ref tind);
+                     if (rightSquareBracketToken.Type == TokenType.RightSquareBracket)
+                     {
+                        ArrayVariable arrayVariable = new ArrayVariable()
+                        {
+                           MySource = source,
+                           FileLocation = node.FileLocation,
 
-                     VariableAccess = node
-                  };
-                  IndexedVariable? indexedVariable = IndexedVariable.ParseAfterArrayVariable(source, ref tind, arrayVariable, suffixToken);
-                  if (indexedVariable == null)
-                  {
-                     tind = pretind;
-                     break;
+                           VariableAccess = node
+                        };
+                        IndexedVariable indexedVariable = new IndexedVariable()
+                        {
+                           MySource = source,
+                           FileLocation = node.FileLocation,
+
+                           ArrayVariable = arrayVariable,
+                           LeftSquareBracketToken = suffixToken,
+                           IndexExpression = indexExpression,
+                           SecondaryIndexExpressions = secondaryIndexExpressions,
+                           RightSquareBracketToken = rightSquareBracketToken
+                        };
+                        ComponentVariable componentVariable = new ComponentVariable()
+                        {
+                           MySource = source,
+                           FileLocation = node.FileLocation,
+
+                           IndexedVariable = indexedVariable
+                        };
+                        node = new VariableAccess()
+                        {
+                           MySource = source,
+                           FileLocation = node.FileLocation,
+
+                           ComponentVariable = componentVariable
+                        };
+                        continue;
+                     }
                   }
-                  ComponentVariable componentVariable = new ComponentVariable()
-                  {
-                     MySource = source,
-                     FileLocation = node.FileLocation,
-
-                     IndexedVariable = indexedVariable
-                  };
-                  node = new VariableAccess()
-                  {
-                     MySource = source,
-                     FileLocation = node.FileLocation,
-
-                     ComponentVariable = componentVariable
-                  };
+                  tind = pretind; //a '[' without a well-formed index list is not part of this variable-access
+                  break;
                }
                else if (suffixToken.Type == TokenType.Dot)
                { //field-designator = record-variable '.' field-specifier
-                  RecordVariable recordVariable = new RecordVariable()
+                  FieldSpecifier? fieldSpecifier = FieldSpecifier.Parse(source, ref tind);
+                  if (fieldSpecifier != null)
                   {
-                     MySource = source,
-                     FileLocation = node.FileLocation,
+                     RecordVariable recordVariable = new RecordVariable()
+                     {
+                        MySource = source,
+                        FileLocation = node.FileLocation,
 
-                     VariableAccess = node
-                  };
-                  FieldDesignator? fieldDesignator = FieldDesignator.ParseAfterRecordVariable(source, ref tind, recordVariable, suffixToken);
-                  if (fieldDesignator == null)
-                  {
-                     tind = pretind;
-                     break;
+                        VariableAccess = node
+                     };
+                     FieldDesignator fieldDesignator = new FieldDesignator()
+                     {
+                        MySource = source,
+                        FileLocation = node.FileLocation,
+
+                        RecordVariable = recordVariable,
+                        DotToken = suffixToken,
+                        FieldSpecifier = fieldSpecifier
+                     };
+                     ComponentVariable componentVariable = new ComponentVariable()
+                     {
+                        MySource = source,
+                        FileLocation = node.FileLocation,
+
+                        FieldDesignator = fieldDesignator
+                     };
+                     node = new VariableAccess()
+                     {
+                        MySource = source,
+                        FileLocation = node.FileLocation,
+
+                        ComponentVariable = componentVariable
+                     };
+                     continue;
                   }
-                  ComponentVariable componentVariable = new ComponentVariable()
-                  {
-                     MySource = source,
-                     FileLocation = node.FileLocation,
-
-                     FieldDesignator = fieldDesignator
-                  };
-                  node = new VariableAccess()
-                  {
-                     MySource = source,
-                     FileLocation = node.FileLocation,
-
-                     ComponentVariable = componentVariable
-                  };
+                  tind = pretind; //a '.' without a field name after it is not part of this variable-access
+                  break;
                }
                else if (suffixToken.Type == TokenType.UpArrow)
                { //identified-variable = pointer-variable '^'   -or-   buffer-variable = file-variable '^'   (same spelling, see above)
@@ -8699,10 +8667,11 @@ namespace PascalCompiler.Parser
                      }
                   };
                   node = Ambiguous.Create(source, new List<VariableAccess>() { identifiedVariable, bufferVariable });
+                  continue;
                }
                else //in any other situation
                {
-                  tind = pretind;
+                  tind = pretind; //no suffix follows: the variable-access ends here
                   break;
                }
             }
