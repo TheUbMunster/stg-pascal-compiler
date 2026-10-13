@@ -11,6 +11,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Reflection.Metadata;
 using System.Reflection;
@@ -94,8 +95,52 @@ namespace PascalCompiler.Parser
          }
       }
       public int FileLocation { get; set; } = -1;
-      public int NodeLength { get => FlattenedView().Select(x => x.TokenLength).Sum(); }
-      public string Content { get => FlattenedView().Select(x => x.Content).Aggregate((x, y) => x + y); }
+      /// <summary>The tokens of FlattenedView without the separators before the first one, i.e. exactly the source text this node covers.</summary>
+      private IEnumerable<Token> OwnTokens() => FlattenedView().SkipWhile(x => Token.absorbedTypes.Contains(x.Type));
+      public int NodeLength { get => OwnTokens().Sum(x => x.TokenLength); }
+      public string Content { get => string.Concat(OwnTokens().Select(x => x.Content)); }
+
+      #region Structure shared by every node class: its children, in declaration order, found by reflection
+      private static readonly Dictionary<Type, IReadOnlyList<(PropertyInfo slot, bool required)>> childSlots = new();
+      /// <summary>
+      /// The child slots of a node class in declaration order (which is source order for the generated classes): every writable
+      /// instance property whose type is a TokenNode, an ASTNode, or a list of those (possibly as value tuples). "required" is the
+      /// property's nullability annotation, so "Expression Expression" is required and "ElsePart? ElsePart" is not; it is only
+      /// meaningful because the project compiles with nullable annotations on. Computed once per class. ToString, FlattenedView,
+      /// AssertCorrectStructure and Ambiguity.Collapse are all written against this list, so no node class has to spell out its children.
+      /// </summary>
+      internal static IReadOnlyList<(PropertyInfo slot, bool required)> ChildSlots(Type nodeClass)
+      {
+         lock (childSlots) //NullabilityInfoContext is not thread safe, and sources are parsed in parallel in release builds
+         {
+            if (!childSlots.TryGetValue(nodeClass, out IReadOnlyList<(PropertyInfo slot, bool required)>? slots))
+            {
+               NullabilityInfoContext nullability = new NullabilityInfoContext();
+               slots = nodeClass.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                  .Where(x => x.CanWrite && x.GetIndexParameters().Length == 0 && IsChildType(x.PropertyType))
+                  .OrderBy(x => x.MetadataToken) //declaration order
+                  .Select(x => (x, nullability.Create(x).ReadState == NullabilityState.NotNull))
+                  .ToList();
+               childSlots[nodeClass] = slots;
+            }
+            return slots;
+         }
+      }
+      private static bool IsChildType(Type type)
+      {
+         return type == typeof(TokenNode) || typeof(ASTNode).IsAssignableFrom(type) || (typeof(IEnumerable).IsAssignableFrom(type) && type != typeof(string));
+      }
+      private IEnumerable<object?> Children() => ChildSlots(GetType()).Select(x => x.slot.GetValue(this));
+      /// <summary>The leaves under one child value in order: the TokenNode or ASTNode itself, or the items of a list or value tuple.</summary>
+      private static IEnumerable<object> Leaves(object? child) => child switch
+      {
+         null => Enumerable.Empty<object>(),
+         TokenNode or ASTNode => new[] { child },
+         ITuple tuple => Enumerable.Range(0, tuple.Length).SelectMany(i => Leaves(tuple[i])),
+         IEnumerable list => list.Cast<object?>().SelectMany(Leaves),
+         _ => throw new InvalidOperationException($"{child.GetType().Name} is not a kind of child an ASTNode can have")
+      };
+      #endregion
 
       #region Parse
       public static ASTNode? Parse(Source source, ref int index)
@@ -191,37 +236,70 @@ namespace PascalCompiler.Parser
          return survivors.Count == 1 ? survivors[0] : placeholder(source, survivors);
       }
       /// <summary>
-      /// This function asserts that all the necessary fields are assigned during construction.
-      /// This includes situations where it might be legal for only some fields to be assigned,
-      /// but only in specific combinations. Required to be overrided and implemented in subclasses.
-      /// 
-      /// If assertion fails, that indicates a bug in the compiler, not a syntax/parse error in the source.
+      /// Checks the node against the shape of its rule: every member declared non-nullable is set, exactly one member of each
+      /// [OneOf] group is set, and the members of each [Together] group are all set or all unset. A failure is a bug in a Parse
+      /// method, not a syntax error in the source. A class with an invariant these cannot express overrides this.
       /// </summary>
       protected virtual void AssertCorrectStructure()
       {
-         //asserts that all the data fields are assigned correctly. If not, this adds a message to the source
-         //and throws an exception.
-         throw new NotImplementedException();
+         Type nodeClass = GetType();
+         foreach ((PropertyInfo slot, bool required) in ChildSlots(nodeClass))
+         {
+            if (required && slot.GetValue(this) == null)
+               throw Malformed($"{slot.Name} is required but unset");
+         }
+         foreach (OneOfAttribute oneOf in nodeClass.GetCustomAttributes<OneOfAttribute>())
+         {
+            if (oneOf.Members.Count(IsSet) != 1)
+               throw Malformed($"exactly one of {string.Join(", ", oneOf.Members)} must be set");
+         }
+         foreach (TogetherAttribute together in nodeClass.GetCustomAttributes<TogetherAttribute>())
+         {
+            if (together.Members.Select(IsSet).Distinct().Count() > 1)
+               throw Malformed($"{string.Join(", ", together.Members)} must be all set or all unset");
+         }
       }
+      private bool IsSet(string member)
+      {
+         PropertyInfo property = GetType().GetProperty(member, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic) ?? throw Malformed($"has no member named {member}");
+         return property.GetValue(this) != null;
+      }
+      private InvalidOperationException Malformed(string what) => new InvalidOperationException($"Compiler parse error in {GetType().Name} (compiler bug): {what}.");
 
+      /// <summary>
+      /// Every lexer token under this node in source order, each preceded by the separators (whitespace, comments, line breaks)
+      /// the lexer attached to it, so that the source text of any node can be reconstructed exactly (see Content). A placeholder
+      /// reports the tokens of its first reading, since all its readings cover the same tokens.
+      /// </summary>
       protected internal virtual IEnumerable<Token> FlattenedView()
       {
-         //iterates through this ast node's data members.
-         //if it is a token, yield it
-         //if it is an ASTNode, then yield node.FlattenedView()
-         throw new NotImplementedException();
+         if (this is IAmbiguous placeholder)
+            return placeholder.Candidates[0].FlattenedView();
+         return Children().SelectMany(Leaves).SelectMany(leaf => leaf is TokenNode token
+            ? token.Token.AbsorbedTokens.Append(token.Token)
+            : ((ASTNode)leaf).FlattenedView());
       }
       #endregion
 
       #region Object Overrides
-      public override sealed string ToString()
-      {
-         throw new Exception($"The regular object.ToString() method was called on an object of type {GetType().Name}, you probably should have used ToString(int, bool)");
-      }
+      public override sealed string ToString() => ToString(0, true);
 
+      /// <summary>
+      /// (NodeType child child ...), with tokens printed as their text and child nodes nested: one per line and indented when
+      /// prettyPrint is set, all on one line otherwise. A placeholder prints as (Ambiguous NodeType reading reading).
+      /// </summary>
       public virtual string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
-         throw new Exception($"This ASTNode's ToString(int, bool) function was not overrided by it's deriver! Type: {GetType().Name}");
+         string name = this is IAmbiguous ? $"Ambiguous {NodeType}" : NodeType.ToString();
+         IEnumerable<object> leaves = this is IAmbiguous placeholder ? placeholder.Candidates : Children().SelectMany(Leaves);
+         string indent = prettyPrint ? new string('\t', indentLevel) : string.Empty;
+         string childIndent = prettyPrint ? new string('\t', indentLevel + 1) : string.Empty;
+         List<string> parts = leaves.Select(leaf => leaf is ASTNode node ? node.ToString(indentLevel + 1, prettyPrint) : childIndent + leaf.ToString()).ToList();
+         if (parts.Count == 0)
+            return $"{indent}({name})";
+         return prettyPrint
+            ? $"{indent}({name}{Environment.NewLine}{string.Join(Environment.NewLine, parts)}{Environment.NewLine}{indent})"
+            : $"({name} {string.Join(" ", parts)})";
       }
       #endregion
    }

@@ -87,22 +87,12 @@ namespace PascalCompiler.Parser
          }
       }
 
-      #region reflection over the generated node classes
-      private const BindingFlags SlotFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-
-      private static bool IsSlot(PropertyInfo property)
-      {
-         if (!property.CanWrite || property.GetIndexParameters().Length != 0) //computed properties (Content, NodeLength, Readings...) have no setter
-            return false;
-         return typeof(ASTNode).IsAssignableFrom(property.PropertyType) ||
-                (typeof(IEnumerable).IsAssignableFrom(property.PropertyType) && property.PropertyType != typeof(string));
-      }
-
+      #region walking the child slots (ASTNode.ChildSlots is the one definition of what a node's children are)
       private static IEnumerable<ASTNode> Children(ASTNode node)
       {
-         foreach (PropertyInfo slot in node.GetType().GetProperties(SlotFlags).Where(IsSlot))
+         foreach ((PropertyInfo slot, _) in ASTNode.ChildSlots(node.GetType()))
          {
-            object? value = slot.GetValue(node);
+            object? value = slot.GetValue(node); //a TokenNode value is neither a node nor a list and is skipped below
             if (value is ASTNode child)
                yield return child;
             else if (value is IEnumerable list)
@@ -126,7 +116,7 @@ namespace PascalCompiler.Parser
       {
          if (!visited.Add(node))
             return;
-         foreach (PropertyInfo slot in node.GetType().GetProperties(SlotFlags).Where(IsSlot))
+         foreach ((PropertyInfo slot, _) in ASTNode.ChildSlots(node.GetType()))
          {
             object? value = slot.GetValue(node);
             if (value is ASTNode child)
