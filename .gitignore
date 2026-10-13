@@ -406,3 +406,4 @@ FodyWeavers.xsd
 /PascalCompilerUnitTests/ParseTests.cs
 /email.txt
 /grammar txt.txt
+/PascalCompiler/3NewParser/*.grammar
