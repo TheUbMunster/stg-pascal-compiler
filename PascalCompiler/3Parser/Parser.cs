@@ -2,6 +2,7 @@
 
 using PascalCompiler.Scanner;
 using PascalCompiler.Lexer;
+using PascalCompiler.TypeChecker;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
@@ -291,6 +292,13 @@ namespace PascalCompiler.Parser
       public virtual string ToString(int indentLevel = 0, bool prettyPrint = true)
       {
          string name = this is IAmbiguous ? $"Ambiguous {NodeType}" : NodeType.ToString();
+         name += this switch //what the type checker decided, once it has run
+         {
+            TypedNode { ResolvedType: not null } typed => $" : {typed.ResolvedType}",
+            TypeDenotingNode { DenotedType: not null } denoting => $" : {denoting.DenotedType}",
+            Identifier { Symbol: not null } identifier => $" -> {identifier.Symbol}",
+            _ => string.Empty
+         };
          IEnumerable<object> leaves = this is IAmbiguous placeholder ? placeholder.Candidates : Children().SelectMany(Leaves);
          string indent = prettyPrint ? new string('\t', indentLevel) : string.Empty;
          string childIndent = prettyPrint ? new string('\t', indentLevel + 1) : string.Empty;
