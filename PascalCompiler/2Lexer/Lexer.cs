@@ -68,7 +68,7 @@ namespace PascalCompiler.Lexer
 
          //character-strings (see 6.1.7)
          //don't need to worry about crazy illegal chars (e.g., bell), scanner already took care of that.
-         { TokenType.CharacterString, new Regex("\\G'[^'\\r\\n]*?'", RegexOptions.Compiled) },
+         { TokenType.CharacterString, new Regex("\\G'(?:[^'\\r\\n]|'')*'", RegexOptions.Compiled) }, //a string-element is a string-character or the apostrophe-image '' (6.1.7)
 
          //digit (see 6.1.1)
          { TokenType.Digit, new Regex("\\G[0-9]", RegexOptions.Compiled) },
