@@ -297,6 +297,7 @@ namespace PascalCompiler.Parser
             TypedNode { ResolvedType: not null } typed => $" : {typed.ResolvedType}",
             TypeDenotingNode { DenotedType: not null } denoting => $" : {denoting.DenotedType}",
             Identifier { Symbol: not null } identifier => $" -> {identifier.Symbol}",
+            Label { Symbol: not null } label => $" -> {label.Symbol}",
             _ => string.Empty
          };
          IEnumerable<object> leaves = this is IAmbiguous placeholder ? placeholder.Candidates : Children().SelectMany(Leaves);

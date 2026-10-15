@@ -48,10 +48,12 @@ namespace PascalCompiler
       public static readonly string scanSucceedMessage = "Success: scan check complete";
       public static readonly string lexSucceedMessage = "Success: lexical analysis complete";
       public static readonly string parseSucceedMessage = "Success: parsing complete";
+      public static readonly string typecheckSucceedMessage = "Success: type checking complete";
 
       public static readonly string scanFailMessage = "Compilation failed at the SourceScan stage";
       public static readonly string lexFailMessage = "Compilation failed at the Lexer stage";
       public static readonly string parseFailMessage = "Compilation failed at the Parser stage";
+      public static readonly string typecheckFailMessage = "Compilation failed at the Typecheck stage";
       #endregion
 
       #region Typedefs
@@ -224,6 +226,42 @@ namespace PascalCompiler
          //===========
          // TYPECHECK
          //===========
+#if DEBUG
+         for (int i = 0; i < sources.Count; i++)
+         {
+            TypeChecker.TypeChecker.Check(sources[i]);
+         }
+#else
+         Parallel.For(0, sources.Count, (i) =>
+         {
+            TypeChecker.TypeChecker.Check(sources[i]);
+         });
+#endif
+         foreach (Source s in sources)
+         {
+            foreach (Source.Message m in s.Messages)
+            {
+               PrintMessage(s, m, outputWriter, !flags.Contains("no-ansi"));
+            }
+            s.ClearMessages();
+         }
+         if (sources.Any(s => s.ErrorHasOccurred))
+         {
+            outputWriter.WriteLine(typecheckFailMessage);
+            return -1;
+         }
+         if (flags.Contains("t"))
+         {
+            foreach (Source s in sources)
+            {
+               outputWriter.WriteLine(string.Join(Environment.NewLine, s.ParserNodes.Select(x => x.ToString(0, true)))); //the tree again, now annotated with the types and symbols the checker assigned
+            }
+            outputWriter.WriteLine(typecheckSucceedMessage);
+            return 0;
+         }
+         //=========
+         // CODEGEN
+         //=========
 
          throw new System.NotImplementedException(); //at the very end
       }
