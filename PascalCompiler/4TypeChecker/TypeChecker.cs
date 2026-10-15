@@ -1930,7 +1930,9 @@ namespace PascalCompiler.TypeChecker
                     ambiguous.Resolved = readlnList;
                 }
                 fileVariable = readlnList.FileVariable;
-                variables = readlnList.VariableAccess == null ? new() : (readlnList.SecondaryVariableAccesses ?? []).Select(x => x.variableAccess).Prepend(readlnList.VariableAccess).ToList();
+                //readln-parameter-list = [ '(' ( file-variable | variable-access ) { ',' variable-access } ')' ]: after a file-variable, every variable is a secondary one
+                IEnumerable<VariableAccess> rest = (readlnList.SecondaryVariableAccesses ?? []).Select(x => x.variableAccess);
+                variables = (readlnList.VariableAccess == null ? rest : rest.Prepend(readlnList.VariableAccess)).ToList();
             }
             else
             {
@@ -1995,7 +1997,9 @@ namespace PascalCompiler.TypeChecker
                     ambiguous.Resolved = writelnList;
                 }
                 fileVariable = writelnList.FileVariable;
-                parameters = writelnList.WriteParameter == null ? new() : (writelnList.SecondaryWriteParameters ?? []).Select(x => x.writeParameter).Prepend(writelnList.WriteParameter).ToList();
+                //writeln-parameter-list = [ '(' ( file-variable | write-parameter ) { ',' write-parameter } ')' ]: after a file-variable, every write-parameter is a secondary one
+                IEnumerable<WriteParameter> rest = (writelnList.SecondaryWriteParameters ?? []).Select(x => x.writeParameter);
+                parameters = (writelnList.WriteParameter == null ? rest : rest.Prepend(writelnList.WriteParameter)).ToList();
             }
             else
             {
